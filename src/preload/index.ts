@@ -8,7 +8,10 @@ const api = {
   getCard: (id: string) => ipcRenderer.invoke('cards:getById', id),
   createCard: (card: any) => ipcRenderer.invoke('cards:create', card),
   updateCard: (id: string, updates: any) => ipcRenderer.invoke('cards:update', id, updates),
-  deleteCard: (id: string) => ipcRenderer.invoke('cards:delete', id)
+  deleteCard: (id: string) => ipcRenderer.invoke('cards:delete', id),
+  
+  // Webview
+  extractWebview: (webContentId: number) => ipcRenderer.invoke('webview:extract', webContentId)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

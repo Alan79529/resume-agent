@@ -1,4 +1,4 @@
-import type { BattleCard } from '../types'
+import type { BattleCard, ExtractedContent } from '../types'
 
 declare global {
   interface Window {
@@ -8,6 +8,7 @@ declare global {
       createCard: (card: BattleCard) => Promise<BattleCard>
       updateCard: (id: string, updates: Partial<BattleCard>) => Promise<BattleCard | undefined>
       deleteCard: (id: string) => Promise<boolean>
+      extractWebview: (webContentId: number) => Promise<ExtractedContent>
     }
   }
 }
