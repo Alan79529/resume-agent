@@ -11,7 +11,10 @@ const api = {
   deleteCard: (id: string) => ipcRenderer.invoke('cards:delete', id),
   
   // Webview
-  extractWebview: (webContentId: number) => ipcRenderer.invoke('webview:extract', webContentId)
+  extractWebview: (webContentId: number) => ipcRenderer.invoke('webview:extract', webContentId),
+  
+  // AI Analysis
+  analyzeContent: (extracted: any) => ipcRenderer.invoke('ai:analyze', extracted)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
