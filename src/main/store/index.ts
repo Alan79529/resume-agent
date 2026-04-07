@@ -1,0 +1,70 @@
+import Store from 'electron-store'
+import type { StoreSchema } from '../../renderer/src/types'
+
+const store = new Store<StoreSchema>({
+  name: 'resume-agent-data',
+  defaults: {
+    battleCards: [],
+    config: {
+      deepseekApiKey: '',
+      defaultReminderMinutes: 60
+    },
+    resources: []
+  }
+})
+
+// Card operations
+export const cardStore = {
+  getAll: (): StoreSchema['battleCards'] => store.get('battleCards'),
+
+  getById: (id: string): StoreSchema['battleCards'][0] | undefined => {
+    const cards = store.get('battleCards')
+    return cards.find((c) => c.id === id)
+  },
+
+  create: (card: StoreSchema['battleCards'][0]): void => {
+    const cards = store.get('battleCards')
+    store.set('battleCards', [...cards, card])
+  },
+
+  update: (id: string, updates: Partial<StoreSchema['battleCards'][0]>): void => {
+    const cards = store.get('battleCards')
+    const index = cards.findIndex((c) => c.id === id)
+    if (index !== -1) {
+      cards[index] = { ...cards[index], ...updates, updatedAt: new Date().toISOString() }
+      store.set('battleCards', cards)
+    }
+  },
+
+  delete: (id: string): void => {
+    const cards = store.get('battleCards')
+    store.set('battleCards', cards.filter((c) => c.id !== id))
+  }
+}
+
+// Config operations
+export const configStore = {
+  getApiKey: (): string => store.get('config').deepseekApiKey,
+  setApiKey: (key: string): void => {
+    store.set('config.deepseekApiKey', key)
+  },
+  getDefaultReminder: (): number => store.get('config').defaultReminderMinutes,
+  setDefaultReminder: (minutes: number): void => {
+    store.set('config.defaultReminderMinutes', minutes)
+  }
+}
+
+// Resource operations
+export const resourceStore = {
+  getAll: (): StoreSchema['resources'] => store.get('resources'),
+  create: (resource: StoreSchema['resources'][0]): void => {
+    const resources = store.get('resources')
+    store.set('resources', [...resources, resource])
+  },
+  delete: (id: string): void => {
+    const resources = store.get('resources')
+    store.set('resources', resources.filter((r) => r.id !== id))
+  }
+}
+
+export default store
