@@ -4,6 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { setupCardIPC } from './ipc/cards'
 import { setupWebviewIPC } from './ipc/webview'
 import { setupAIIPC } from './ipc/ai'
+import { setupConfigIPC } from './ipc/config'
 // import icon from '../../resources/icon.png?asset'
 
 function createWindow(): void {
@@ -59,6 +60,7 @@ app.whenReady().then(() => {
   setupCardIPC()
   setupWebviewIPC()
   setupAIIPC()
+  setupConfigIPC()
 
   createWindow()
 

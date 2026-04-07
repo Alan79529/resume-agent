@@ -14,7 +14,11 @@ const api = {
   extractWebview: (webContentId: number) => ipcRenderer.invoke('webview:extract', webContentId),
   
   // AI Analysis
-  analyzeContent: (extracted: any) => ipcRenderer.invoke('ai:analyze', extracted)
+  analyzeContent: (extracted: any) => ipcRenderer.invoke('ai:analyze', extracted),
+  
+  // Config
+  getApiKey: () => ipcRenderer.invoke('config:getApiKey'),
+  setApiKey: (key: string) => ipcRenderer.invoke('config:setApiKey', key)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

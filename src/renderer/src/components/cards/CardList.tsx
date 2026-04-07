@@ -1,9 +1,11 @@
-import React, { useEffect } from 'react';
-import { Plus } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Plus, Settings } from 'lucide-react';
 import { useCardsStore } from '../../stores/cards';
 import { CardItem } from './CardItem';
+import { SettingsPanel } from '../settings/SettingsPanel';
 
 export const CardList: React.FC = () => {
+  const [showSettings, setShowSettings] = useState(false);
   const { cards, selectedCardId, loadCards, selectCard, createCard } = useCardsStore();
 
   useEffect(() => {
@@ -54,13 +56,22 @@ export const CardList: React.FC = () => {
             <h2 className="text-lg font-semibold text-gray-900">作战卡</h2>
             <p className="text-sm text-gray-500 mt-0.5">{cards.length} 个面试机会</p>
           </div>
-          <button
-            onClick={handleCreateCard}
-            className="p-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors"
-            title="新建作战卡"
-          >
-            <Plus size={18} />
-          </button>
+          <div className="flex gap-1">
+            <button
+              onClick={() => setShowSettings(true)}
+              className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+              title="设置"
+            >
+              <Settings size={18} />
+            </button>
+            <button
+              onClick={handleCreateCard}
+              className="p-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors"
+              title="新建作战卡"
+            >
+              <Plus size={18} />
+            </button>
+          </div>
         </div>
       </div>
       
@@ -81,6 +92,8 @@ export const CardList: React.FC = () => {
           ))
         )}
       </div>
+      
+      <SettingsPanel isOpen={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   );
 };

@@ -10,6 +10,8 @@ declare global {
       deleteCard: (id: string) => Promise<boolean>
       extractWebview: (webContentId: number) => Promise<ExtractedContent>
       analyzeContent: (extracted: ExtractedContent) => Promise<Analysis>
+      getApiKey: () => Promise<string>
+      setApiKey: (key: string) => Promise<boolean>
     }
   }
 }
