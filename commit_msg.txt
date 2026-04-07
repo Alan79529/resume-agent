@@ -1,0 +1,1 @@
+fix: change allowpopups to string attribute to resolve React warning

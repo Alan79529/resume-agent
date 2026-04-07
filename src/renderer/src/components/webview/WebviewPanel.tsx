@@ -40,7 +40,7 @@ export const WebviewPanel: React.FC = () => {
               src={tab.url}
               data-tab-id={tab.id}
               className="w-full h-full"
-              allowpopups
+              allowpopups=""
             />
           </div>
         ))}
