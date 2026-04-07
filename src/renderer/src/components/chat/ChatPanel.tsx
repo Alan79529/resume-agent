@@ -1,13 +1,21 @@
 import React, { useState } from 'react';
-import { Send, Sparkles } from 'lucide-react';
+import { Send, Sparkles, Save, X } from 'lucide-react';
 import { useChatStore } from '../../stores/chat';
+import { useCardsStore } from '../../stores/cards';
+import { useWebviewStore } from '../../stores/webview';
 import { MessageList } from './MessageList';
 import { api } from '../../utils/ipc';
-import { useWebviewStore } from '../../stores/webview';
+import type { Analysis, ExtractedContent } from '../../types';
 
 export const ChatPanel: React.FC = () => {
   const [input, setInput] = useState('');
+  const [pendingAnalysis, setPendingAnalysis] = useState<{
+    extracted: ExtractedContent;
+    analysis: Analysis;
+  } | null>(null);
+  
   const { addMessage, setLoading } = useChatStore();
+  const { createCard } = useCardsStore();
   const webviewRefs = useWebviewStore();
 
   const handleSend = () => {
@@ -34,9 +42,11 @@ export const ChatPanel: React.FC = () => {
 
       const extracted = await api.extractWebview(webview.getWebContentsId());
       
-      addMessage('assistant', `已提取: ${extracted.title}`);
+      addMessage('assistant', `已提取: ${extracted.title}\n类型: ${extracted.pageType}`);
       
       const analysis = await api.analyzeContent(extracted);
+      
+      setPendingAnalysis({ extracted, analysis });
       
       const summary = `## 分析完成 ✅
 
@@ -47,7 +57,10 @@ export const ChatPanel: React.FC = () => {
 **高频问题**:
 ${analysis.commonQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}
 
-正在创建作战卡...`;
+**注意事项**:
+${analysis.warnings.map(w => `- ${w}`).join('\n')}
+
+点击"保存为作战卡"将此分析保存，或继续浏览其他岗位。`;
 
       addMessage('assistant', summary);
     } catch (error: any) {
@@ -55,6 +68,48 @@ ${analysis.commonQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSaveCard = async () => {
+    if (!pendingAnalysis) return;
+    
+    const { extracted, analysis } = pendingAnalysis;
+    
+    // Extract company and position from title
+    const titleParts = extracted.title.split(/[·|-]/);
+    const companyName = titleParts[0]?.trim() || '未知公司';
+    const positionName = titleParts[1]?.trim() || '未知岗位';
+    
+    await createCard({
+      companyName,
+      positionName,
+      status: 'preparing',
+      analysis,
+      schedule: {
+        interviewTime: null,
+        reminderMinutes: 60,
+        location: ''
+      },
+      review: {
+        actualQuestions: '',
+        selfRating: 3,
+        answerFeedback: '',
+        interviewerFeedback: '',
+        salaryRange: '',
+        result: 'pending',
+        recommend: false,
+        notes: ''
+      },
+      sourceUrl: extracted.url
+    });
+    
+    addMessage('assistant', `✅ 已创建作战卡: ${companyName} · ${positionName}`);
+    setPendingAnalysis(null);
+  };
+
+  const handleCancel = () => {
+    setPendingAnalysis(null);
+    addMessage('assistant', '已取消保存');
   };
 
   return (
@@ -65,13 +120,34 @@ ${analysis.commonQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}
             <h2 className="text-lg font-semibold text-gray-900">AI 助手</h2>
             <p className="text-sm text-gray-500 mt-0.5">在浏览器中找到岗位后点击分析</p>
           </div>
-          <button
-            onClick={handleExtract}
-            className="flex items-center gap-2 px-3 py-1.5 bg-primary text-white text-sm rounded-lg hover:bg-primary-hover transition-colors"
-          >
-            <Sparkles size={16} />
-            提取并分析
-          </button>
+          <div className="flex gap-2">
+            {pendingAnalysis && (
+              <>
+                <button
+                  onClick={handleSaveCard}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <Save size={16} />
+                  保存为作战卡
+                </button>
+                <button
+                  onClick={handleCancel}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300 transition-colors"
+                >
+                  <X size={16} />
+                  取消
+                </button>
+              </>
+            )}
+            <button
+              onClick={handleExtract}
+              disabled={!!pendingAnalysis}
+              className="flex items-center gap-2 px-3 py-1.5 bg-primary text-white text-sm rounded-lg hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Sparkles size={16} />
+              提取并分析
+            </button>
+          </div>
         </div>
       </div>
       
