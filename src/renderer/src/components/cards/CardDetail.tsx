@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, FileText, MessageSquare, AlertTriangle, CheckSquare, Mic, FileEdit, BookOpen, Bell, ClipboardList } from 'lucide-react';
+import { Building2, FileText, MessageSquare, AlertTriangle, CheckSquare, Mic, FileEdit, BookOpen, Bell, ClipboardList, ArrowLeft } from 'lucide-react';
 import { useCardsStore } from '../../stores/cards';
 import type { CardStatus } from '../../types';
 
@@ -12,7 +12,7 @@ const statusOptions: { value: CardStatus; label: string }[] = [
 ];
 
 export const CardDetail: React.FC = () => {
-  const { selectedCardId, cards, updateCard } = useCardsStore();
+  const { selectedCardId, cards, updateCard, selectCard } = useCardsStore();
   
   const card = cards.find(c => c.id === selectedCardId);
   
@@ -40,6 +40,13 @@ export const CardDetail: React.FC = () => {
     <div className="h-full overflow-y-auto p-6">
       {/* Header */}
       <div className="mb-6 pb-4 border-b border-gray-200">
+        <button
+          onClick={() => selectCard(null)}
+          className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-2"
+        >
+          <ArrowLeft size={16} />
+          返回对话
+        </button>
         <h1 className="text-xl font-bold text-gray-900">{card.companyName}</h1>
         <p className="text-gray-600 mt-1">{card.positionName}</p>
         

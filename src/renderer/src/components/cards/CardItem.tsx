@@ -1,5 +1,6 @@
-import React from 'react';
-import { MoreVertical, Calendar } from 'lucide-react';
+import React, { useState } from 'react';
+import { MoreVertical, Calendar, Trash2 } from 'lucide-react';
+import { useCardsStore } from '../../stores/cards';
 import type { BattleCard, CardStatus } from '../../types';
 
 interface CardItemProps {
@@ -17,12 +18,22 @@ const statusConfig: Record<CardStatus, { label: string; color: string; bg: strin
 };
 
 export const CardItem: React.FC<CardItemProps> = ({ card, isSelected, onClick }) => {
+  const [showDelete, setShowDelete] = useState(false);
+  const { deleteCard, selectCard } = useCardsStore();
   const status = statusConfig[card.status];
   
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return null;
     const date = new Date(dateStr);
     return `${date.getMonth() + 1}/${date.getDate()}`;
+  };
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm(`确定要删除 "${card.companyName} · ${card.positionName}" 吗？`)) {
+      await deleteCard(card.id);
+      selectCard(null);
+    }
   };
 
   return (
@@ -42,13 +53,11 @@ export const CardItem: React.FC<CardItemProps> = ({ card, isSelected, onClick })
           <p className="text-sm text-gray-500 truncate mt-0.5">{card.positionName}</p>
         </div>
         <button 
-          className="p-1 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
-          onClick={(e) => {
-            e.stopPropagation();
-            // TODO: show context menu
-          }}
+          className="p-1 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={handleDelete}
+          title="删除"
         >
-          <MoreVertical size={16} />
+          <Trash2 size={16} />
         </button>
       </div>
       

@@ -75,10 +75,59 @@ ${analysis.warnings.map(w => `- ${w}`).join('\n')}
     
     const { extracted, analysis } = pendingAnalysis;
     
-    // Extract company and position from title
-    const titleParts = extracted.title.split(/[·|-]/);
-    const companyName = titleParts[0]?.trim() || '未知公司';
-    const positionName = titleParts[1]?.trim() || '未知岗位';
+    // Smart extraction of company and position from page content
+    let companyName = '未知公司';
+    let positionName = '未知岗位';
+    
+    // Try to extract from page content (Boss 直聘 pattern)
+    const content = extracted.content;
+    
+    // Boss 直聘 JD page pattern: Look for company name after specific keywords
+    const companyPatterns = [
+      /公司名[称]?[：:]\s*([^\n]+)/i,
+      /([^\n]+)\s*招聘\s*([^\n]+)实习/i,
+      /([^\n]{2,20})\s*[·|]\s*([^\n]{2,30})/,
+    ];
+    
+    for (const pattern of companyPatterns) {
+      const match = content.match(pattern);
+      if (match) {
+        if (match[1] && match[1].trim().length > 1) {
+          companyName = match[1].trim();
+        }
+        if (match[2] && match[2].trim().length > 1) {
+          positionName = match[2].trim();
+        }
+        break;
+      }
+    }
+    
+    // If still not found, try from title (remove common suffixes)
+    if (companyName === '未知公司') {
+      const cleanTitle = extracted.title
+        .replace(/_BOSS直聘$/, '')
+        .replace(/招聘$/, '')
+        .replace(/实习$/, '')
+        .trim();
+      
+      const titleParts = cleanTitle.split(/[·|-]/);
+      if (titleParts.length >= 2) {
+        companyName = titleParts[0].trim();
+        positionName = titleParts[1].trim();
+      } else {
+        companyName = cleanTitle || '未知公司';
+      }
+    }
+    
+    // Clean up company name (remove extra spaces and common noise)
+    companyName = companyName
+      .replace(/\s+/g, ' ')
+      .replace(/招聘$/i, '')
+      .trim();
+    
+    positionName = positionName
+      .replace(/\s+/g, ' ')
+      .trim();
     
     await createCard({
       companyName,

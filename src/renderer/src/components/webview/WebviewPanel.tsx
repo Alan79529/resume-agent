@@ -5,13 +5,15 @@ import { TabBar } from './TabBar';
 export const WebviewPanel: React.FC = () => {
   const { tabs, addTab, updateTabTitle } = useWebviewStore();
   const webviewRefs = useRef<Map<string, Electron.WebviewTag>>(new Map());
+  const hasInit = useRef(false);
 
-  // Add initial tab on mount
+  // Add initial tab on mount (prevent double execution with ref)
   useEffect(() => {
-    if (tabs.length === 0) {
+    if (!hasInit.current && tabs.length === 0) {
+      hasInit.current = true;
       addTab('https://www.zhipin.com');
     }
-  }, []);
+  }, [tabs.length]);
 
   const handleWebviewRef = (id: string, el: HTMLWebViewElement | null) => {
     if (el) {
@@ -41,6 +43,8 @@ export const WebviewPanel: React.FC = () => {
               data-tab-id={tab.id}
               className="w-full h-full"
               allowpopups=""
+              partition="persist:webview"
+              webpreferences="contextIsolation=yes,nodeIntegration=no,sandbox=yes"
             />
           </div>
         ))}
