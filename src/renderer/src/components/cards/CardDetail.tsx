@@ -48,6 +48,9 @@ export const CardDetail: React.FC = () => {
           返回对话
         </button>
         <h1 className="text-xl font-bold text-gray-900">{card.companyName}</h1>
+        {card.companyLocation && (
+          <p className="text-sm text-gray-400 mt-1">{card.companyLocation}</p>
+        )}
         <p className="text-gray-600 mt-1">{card.positionName}</p>
         
         <div className="flex items-center gap-4 mt-4">

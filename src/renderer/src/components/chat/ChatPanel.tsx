@@ -119,6 +119,26 @@ ${analysis.warnings.map(w => `- ${w}`).join('\n')}
       }
     }
     
+    // Extract company location from content (common patterns)
+    let companyLocation = '';
+    const locationPatterns = [
+      /工作地[点]?[：:]\s*([^\n]+)/i,
+      /地[点址][\s:：]+([^\n,，]+)/,
+      /([\u4e00-\u9fa5]{2,10}[省市])/.exec(content),
+    ];
+    
+    for (const pattern of locationPatterns) {
+      if (pattern) {
+        const match = typeof pattern === 'object' && 'exec' in pattern 
+          ? pattern 
+          : content.match(pattern as RegExp);
+        if (match && match[1]) {
+          companyLocation = match[1].trim();
+          break;
+        }
+      }
+    }
+    
     // Clean up company name (remove extra spaces and common noise)
     companyName = companyName
       .replace(/\s+/g, ' ')
@@ -131,6 +151,7 @@ ${analysis.warnings.map(w => `- ${w}`).join('\n')}
     
     await createCard({
       companyName,
+      companyLocation,
       positionName,
       status: 'preparing',
       analysis,

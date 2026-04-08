@@ -42,6 +42,7 @@ export interface Review {
 export interface BattleCard {
   id: string;
   companyName: string;
+  companyLocation: string;
   positionName: string;
   status: CardStatus;
   analysis: Analysis;

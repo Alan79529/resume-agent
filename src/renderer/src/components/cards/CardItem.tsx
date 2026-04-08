@@ -50,6 +50,9 @@ export const CardItem: React.FC<CardItemProps> = ({ card, isSelected, onClick })
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           <h3 className="font-medium text-gray-900 truncate">{card.companyName}</h3>
+          {card.companyLocation && (
+            <p className="text-xs text-gray-400 truncate mt-0.5">{card.companyLocation}</p>
+          )}
           <p className="text-sm text-gray-500 truncate mt-0.5">{card.positionName}</p>
         </div>
         <button 

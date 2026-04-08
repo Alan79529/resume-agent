@@ -16,6 +16,7 @@ export const CardList: React.FC = () => {
     // Create a demo card for testing
     await createCard({
       companyName: '示例公司',
+      companyLocation: '北京',
       positionName: '前端开发实习',
       status: 'pending_analysis',
       analysis: {

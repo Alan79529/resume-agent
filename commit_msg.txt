@@ -1,1 +1,1 @@
-feat: add return button, improve company extraction, add delete card feature
+feat: add company location field and update card display layout
