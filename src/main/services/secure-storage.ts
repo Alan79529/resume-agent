@@ -7,6 +7,7 @@ export function isEncryptionAvailable(): boolean {
 }
 
 export function encryptString(plaintext: string): string {
+  if (typeof plaintext !== 'string') return '';
   if (plaintext === '') return plaintext;
   if (plaintext.startsWith(ENCRYPTED_PREFIX)) return plaintext;
   if (!isEncryptionAvailable()) {
