@@ -34,7 +34,7 @@ export class OpenAICompatibleProvider implements AIProvider {
         try {
           const json = JSON.parse(trimmed.slice(6));
           const delta = json.choices?.[0]?.delta?.content;
-          if (delta) {
+          if (typeof delta === 'string') {
             yield delta;
           }
         } catch (err) {
