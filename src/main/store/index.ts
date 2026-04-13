@@ -1,5 +1,6 @@
 import Store from 'electron-store'
 import type { StoreSchema } from '../../renderer/src/types'
+import { encryptString, decryptString, isEncryptionAvailable } from '../services/secure-storage'
 
 const store = new Store<StoreSchema>({
   name: 'resume-agent-data',
@@ -46,9 +47,21 @@ export const cardStore = {
 
 // Config operations
 export const configStore = {
-  getApiKey: (): string => store.get('config').deepseekApiKey,
+  getApiKey: (): string => {
+    const raw = store.get('config').deepseekApiKey;
+    if (raw === '' || raw === null || raw === undefined) return raw ?? '';
+    try {
+      return decryptString(raw);
+    } catch (e) {
+      // Legacy plaintext migration: if decryption fails, assume plaintext
+      if (isEncryptionAvailable() && typeof raw === 'string') {
+        store.set('config.deepseekApiKey', encryptString(raw));
+      }
+      return raw;
+    }
+  },
   setApiKey: (key: string): void => {
-    store.set('config.deepseekApiKey', key)
+    store.set('config.deepseekApiKey', encryptString(key));
   },
   getApiBaseUrl: (): string => store.get('config').apiBaseUrl,
   setApiBaseUrl: (url: string): void => {
