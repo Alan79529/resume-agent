@@ -50,18 +50,31 @@ export const configStore = {
   getApiKey: (): string => {
     const raw = store.get('config').deepseekApiKey;
     if (raw === '' || raw === null || raw === undefined) return raw ?? '';
+
+    // Silent migration: if value is plaintext (no encrypted prefix), encrypt it now
+    if (isEncryptionAvailable() && typeof raw === 'string' && !raw.startsWith('enc:')) {
+      try {
+        store.set('config.deepseekApiKey', encryptString(raw));
+      } catch (e) {
+        console.error('[store] Failed to encrypt API key during migration:', e);
+      }
+      return raw;
+    }
+
     try {
       return decryptString(raw);
     } catch (e) {
-      // Legacy plaintext migration: if decryption fails, assume plaintext
-      if (isEncryptionAvailable() && typeof raw === 'string') {
-        store.set('config.deepseekApiKey', encryptString(raw));
-      }
+      console.error('[store] Failed to decrypt API key:', e);
       return raw;
     }
   },
   setApiKey: (key: string): void => {
-    store.set('config.deepseekApiKey', encryptString(key));
+    try {
+      store.set('config.deepseekApiKey', encryptString(key));
+    } catch (e) {
+      console.error('[store] Failed to encrypt API key:', e);
+      throw e;
+    }
   },
   getApiBaseUrl: (): string => store.get('config').apiBaseUrl,
   setApiBaseUrl: (url: string): void => {
