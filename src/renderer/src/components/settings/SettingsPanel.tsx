@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Key, Save, Check } from 'lucide-react';
+import { Key, Save, Check, Globe, Cpu } from 'lucide-react';
 import { api } from '../../utils/ipc';
 
 interface SettingsPanelProps {
@@ -9,16 +9,22 @@ interface SettingsPanelProps {
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
   const [apiKey, setApiKey] = useState('');
+  const [baseUrl, setBaseUrl] = useState('');
+  const [model, setModel] = useState('');
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       api.getApiKey().then(key => setApiKey(key || ''));
+      api.getApiBaseUrl().then(url => setBaseUrl(url || ''));
+      api.getModel().then(m => setModel(m || ''));
     }
   }, [isOpen]);
 
   const handleSave = async () => {
     await api.setApiKey(apiKey);
+    await api.setApiBaseUrl(baseUrl);
+    await api.setModel(model);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -35,8 +41,40 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <div className="flex items-center gap-2">
+                  <Globe size={16} />
+                  API Base URL
+                </div>
+              </label>
+              <input
+                type="text"
+                value={baseUrl}
+                onChange={(e) => setBaseUrl(e.target.value)}
+                placeholder="https://api.deepseek.com/v1/chat/completions"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <div className="flex items-center gap-2">
+                  <Cpu size={16} />
+                  模型名称
+                </div>
+              </label>
+              <input
+                type="text"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                placeholder="deepseek-chat"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <div className="flex items-center gap-2">
                   <Key size={16} />
-                  DeepSeek API Key
+                  API Key
                 </div>
               </label>
               <input

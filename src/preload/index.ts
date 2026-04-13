@@ -1,7 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
-// Custom APIs for card operations
 const api = {
   // Cards
   getCards: () => ipcRenderer.invoke('cards:getAll'),
@@ -16,14 +15,33 @@ const api = {
   // AI Analysis
   analyzeContent: (extracted: any) => ipcRenderer.invoke('ai:analyze', extracted),
   
+  // AI Chat Stream
+  chatStream: (messages: any[], requestId: string) => ipcRenderer.send('ai:chatStream', messages, requestId),
+  onChatStreamChunk: (callback: (requestId: string, chunk: string) => void) => {
+    const handler = (_: any, requestId: string, chunk: string) => callback(requestId, chunk);
+    ipcRenderer.on('ai:chatStream:chunk', handler);
+    return () => ipcRenderer.removeListener('ai:chatStream:chunk', handler);
+  },
+  onChatStreamDone: (callback: (requestId: string) => void) => {
+    const handler = (_: any, requestId: string) => callback(requestId);
+    ipcRenderer.on('ai:chatStream:done', handler);
+    return () => ipcRenderer.removeListener('ai:chatStream:done', handler);
+  },
+  onChatStreamError: (callback: (requestId: string, error: string) => void) => {
+    const handler = (_: any, requestId: string, error: string) => callback(requestId, error);
+    ipcRenderer.on('ai:chatStream:error', handler);
+    return () => ipcRenderer.removeListener('ai:chatStream:error', handler);
+  },
+
   // Config
   getApiKey: () => ipcRenderer.invoke('config:getApiKey'),
-  setApiKey: (key: string) => ipcRenderer.invoke('config:setApiKey', key)
+  setApiKey: (key: string) => ipcRenderer.invoke('config:setApiKey', key),
+  getApiBaseUrl: () => ipcRenderer.invoke('config:getApiBaseUrl'),
+  setApiBaseUrl: (url: string) => ipcRenderer.invoke('config:setApiBaseUrl', url),
+  getModel: () => ipcRenderer.invoke('config:getModel'),
+  setModel: (model: string) => ipcRenderer.invoke('config:setModel', model),
 }
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)

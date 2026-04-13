@@ -1,4 +1,4 @@
-import type { BattleCard, ExtractedContent, Analysis } from '../types'
+import type { BattleCard, ExtractedContent, Analysis, AIChatMessage } from '../types'
 
 declare global {
   interface Window {
@@ -10,8 +10,16 @@ declare global {
       deleteCard: (id: string) => Promise<boolean>
       extractWebview: (webContentId: number) => Promise<ExtractedContent>
       analyzeContent: (extracted: ExtractedContent) => Promise<Analysis>
+      chatStream: (messages: AIChatMessage[], requestId: string) => void
+      onChatStreamChunk: (callback: (requestId: string, chunk: string) => void) => () => void
+      onChatStreamDone: (callback: (requestId: string) => void) => () => void
+      onChatStreamError: (callback: (requestId: string, error: string) => void) => () => void
       getApiKey: () => Promise<string>
       setApiKey: (key: string) => Promise<boolean>
+      getApiBaseUrl: () => Promise<string>
+      setApiBaseUrl: (url: string) => Promise<boolean>
+      getModel: () => Promise<string>
+      setModel: (model: string) => Promise<boolean>
     }
   }
 }
