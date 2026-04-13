@@ -1,5 +1,4 @@
-import type { AIProvider } from './provider';
-import type { AIChatMessage } from './provider';
+import type { AIProvider, AIChatMessage } from './provider';
 
 export interface OpenAICompatibleProviderConfig {
   baseURL: string;
@@ -35,7 +34,11 @@ export class OpenAICompatibleProvider implements AIProvider {
     }
 
     const data = await response.json();
-    return data.choices[0].message.content as string;
+    const content = data.choices?.[0]?.message?.content;
+    if (typeof content !== 'string') {
+      throw new Error('Invalid response format from AI API');
+    }
+    return content;
   }
 
   async *chatStream(messages: AIChatMessage[], options?: { temperature?: number; maxTokens?: number }): AsyncGenerator<string, void> {
@@ -90,8 +93,8 @@ export class OpenAICompatibleProvider implements AIProvider {
               if (delta) {
                 yield delta;
               }
-            } catch {
-              // ignore malformed JSON
+            } catch (err) {
+              console.warn('[OpenAICompatibleProvider] Malformed SSE line:', trimmed, err);
             }
           }
         }
