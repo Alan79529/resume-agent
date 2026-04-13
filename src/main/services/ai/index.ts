@@ -1,12 +1,17 @@
-import { configStore } from '../store';
-import type { ExtractedContent, Analysis } from '../../renderer/src/types';
+import { configStore } from '../../store';
+import { OpenAICompatibleProvider } from './openai-compatible';
+import type { ExtractedContent, Analysis } from '../../../renderer/src/types';
 
 export async function analyzeJobContent(extracted: ExtractedContent): Promise<Analysis> {
   const apiKey = configStore.getApiKey();
-  
+  const baseURL = configStore.getApiBaseUrl();
+  const model = configStore.getModel();
+
   if (!apiKey) {
-    throw new Error('请先配置 DeepSeek API Key');
+    throw new Error('请先配置 API Key');
   }
+
+  const provider = new OpenAICompatibleProvider({ baseURL, model, apiKey });
 
   const prompt = `你是一个资深的互联网大厂面试官。请根据以下信息为求职者生成面试策略：
 
@@ -31,40 +36,21 @@ ${extracted.content.substring(0, 3000)}
   "keyPoints": ["八股重点1", "八股重点2", "八股重点3"]
 }`;
 
-  const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: 'deepseek-chat',
-      messages: [
-        { role: 'system', content: '你是一个专业的面试辅导助手，帮助求职者准备技术面试。' },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.7,
-      max_tokens: 2000
-    })
-  });
+  const content = await provider.chat(
+    [
+      { role: 'system', content: '你是一个专业的面试辅导助手，帮助求职者准备技术面试。' },
+      { role: 'user', content: prompt }
+    ],
+    { temperature: 0.7, maxTokens: 2000 }
+  );
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`DeepSeek API 错误: ${error}`);
-  }
-
-  const data = await response.json();
-  const content = data.choices[0].message.content;
-  
-  // Extract JSON from response (handle markdown code blocks)
   const jsonMatch = content.match(/```json\n?([\s\S]*?)\n?```/) || content.match(/({[\s\S]*})/);
   const jsonStr = jsonMatch ? jsonMatch[1] : content;
-  
+
   try {
     const analysis: Analysis = JSON.parse(jsonStr);
     return analysis;
   } catch (e) {
-    // Fallback: return raw content in companySummary
     return {
       companySummary: content.substring(0, 200),
       jdSummary: '',
