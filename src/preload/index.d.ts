@@ -1,5 +1,5 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-import type { BattleCard } from '../renderer/src/types'
+import type { BattleCard, ExtractedContent, Analysis, AIChatMessage } from '../renderer/src/types'
 
 // Custom API interface
 interface CustomAPI {
@@ -8,6 +8,12 @@ interface CustomAPI {
   createCard: (card: BattleCard) => Promise<BattleCard>
   updateCard: (id: string, updates: Partial<BattleCard>) => Promise<BattleCard | undefined>
   deleteCard: (id: string) => Promise<boolean>
+  extractWebview: (webContentId: number) => Promise<ExtractedContent>
+  analyzeContent: (extracted: ExtractedContent) => Promise<Analysis>
+  chatStream: (messages: AIChatMessage[], requestId: string) => void
+  onChatStreamChunk: (callback: (requestId: string, chunk: string) => void) => () => void
+  onChatStreamDone: (callback: (requestId: string) => void) => () => void
+  onChatStreamError: (callback: (requestId: string, error: string) => void) => () => void
   getApiKey: () => Promise<string>
   setApiKey: (key: string) => Promise<boolean>
   getApiBaseUrl: () => Promise<string>

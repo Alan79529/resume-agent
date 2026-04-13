@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Key, Save, Check, Globe, Cpu } from 'lucide-react';
 import { api } from '../../utils/ipc';
 
@@ -12,27 +12,51 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
   const [baseUrl, setBaseUrl] = useState('');
   const [model, setModel] = useState('');
   const [saved, setSaved] = useState(false);
+  const savedTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (isOpen) {
-      api.getApiKey().then(key => setApiKey(key || ''));
-      api.getApiBaseUrl().then(url => setBaseUrl(url || ''));
-      api.getModel().then(m => setModel(m || ''));
-    }
+    if (!isOpen) return;
+
+    let ignore = false;
+    Promise.all([api.getApiKey(), api.getApiBaseUrl(), api.getModel()])
+      .then(([key, url, m]) => {
+        if (ignore) return;
+        setApiKey(key || '');
+        setBaseUrl(url || '');
+        setModel(m || '');
+      });
+
+    return () => {
+      ignore = true;
+    };
   }, [isOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (savedTimerRef.current) {
+        clearTimeout(savedTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleSave = async () => {
     await api.setApiKey(apiKey);
     await api.setApiBaseUrl(baseUrl);
     await api.setModel(model);
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
     setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    savedTimerRef.current = setTimeout(() => setSaved(false), 2000);
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div 
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
         <div className="p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">设置</h2>
