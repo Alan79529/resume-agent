@@ -68,6 +68,8 @@ export interface StoreSchema {
   battleCards: BattleCard[];
   config: {
     deepseekApiKey: string;
+    apiBaseUrl: string;
+    model: string;
     defaultReminderMinutes: number;
   };
   resources: ResourceFile[];
@@ -87,6 +89,12 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
+}
+
+// AI Message for API calls
+export interface AIChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
 }
 
 // Page Type for Extraction

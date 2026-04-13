@@ -7,6 +7,8 @@ const store = new Store<StoreSchema>({
     battleCards: [],
     config: {
       deepseekApiKey: '',
+      apiBaseUrl: 'https://api.deepseek.com/v1/chat/completions',
+      model: 'deepseek-chat',
       defaultReminderMinutes: 60
     },
     resources: []
@@ -47,6 +49,14 @@ export const configStore = {
   getApiKey: (): string => store.get('config').deepseekApiKey,
   setApiKey: (key: string): void => {
     store.set('config.deepseekApiKey', key)
+  },
+  getApiBaseUrl: (): string => store.get('config').apiBaseUrl,
+  setApiBaseUrl: (url: string): void => {
+    store.set('config.apiBaseUrl', url)
+  },
+  getModel: (): string => store.get('config').model,
+  setModel: (model: string): void => {
+    store.set('config.model', model)
   },
   getDefaultReminder: (): number => store.get('config').defaultReminderMinutes,
   setDefaultReminder: (minutes: number): void => {
