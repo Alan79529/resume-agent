@@ -8,6 +8,12 @@ interface CustomAPI {
   createCard: (card: BattleCard) => Promise<BattleCard>
   updateCard: (id: string, updates: Partial<BattleCard>) => Promise<BattleCard | undefined>
   deleteCard: (id: string) => Promise<boolean>
+  getApiKey: () => Promise<string>
+  setApiKey: (key: string) => Promise<boolean>
+  getApiBaseUrl: () => Promise<string>
+  setApiBaseUrl: (url: string) => Promise<boolean>
+  getModel: () => Promise<string>
+  setModel: (model: string) => Promise<boolean>
 }
 
 declare global {
