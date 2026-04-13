@@ -1,17 +1,23 @@
 import { configStore } from '../../store';
 import { OpenAICompatibleProvider } from './openai-compatible';
+import type { AIProvider } from './provider';
 import type { ExtractedContent, Analysis } from '../../../renderer/src/types';
 
-export async function analyzeJobContent(extracted: ExtractedContent): Promise<Analysis> {
+function createProvider(): AIProvider {
   const apiKey = configStore.getApiKey();
   const baseURL = configStore.getApiBaseUrl();
   const model = configStore.getModel();
+  return new OpenAICompatibleProvider({ baseURL, model, apiKey });
+}
+
+export async function analyzeJobContent(extracted: ExtractedContent): Promise<Analysis> {
+  const apiKey = configStore.getApiKey();
 
   if (!apiKey) {
     throw new Error('请先配置 API Key');
   }
 
-  const provider = new OpenAICompatibleProvider({ baseURL, model, apiKey });
+  const provider = createProvider();
 
   const prompt = `你是一个资深的互联网大厂面试官。请根据以下信息为求职者生成面试策略：
 
@@ -44,13 +50,14 @@ ${extracted.content.substring(0, 3000)}
     { temperature: 0.7, maxTokens: 2000 }
   );
 
-  const jsonMatch = content.match(/```json\n?([\s\S]*?)\n?```/) || content.match(/({[\s\S]*})/);
+  const jsonMatch = content.match(/```json\n?([\s\S]*?)\n?```/) || content.match(/({[\s\S]*?})/);
   const jsonStr = jsonMatch ? jsonMatch[1] : content;
 
   try {
     const analysis: Analysis = JSON.parse(jsonStr);
     return analysis;
   } catch (e) {
+    console.error('[analyzeJobContent] Failed to parse AI response as JSON:', e);
     return {
       companySummary: content.substring(0, 200),
       jdSummary: '',
