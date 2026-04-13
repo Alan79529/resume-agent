@@ -8,6 +8,7 @@ export function isEncryptionAvailable(): boolean {
 
 export function encryptString(plaintext: string): string {
   if (plaintext === '') return plaintext;
+  if (plaintext.startsWith(ENCRYPTED_PREFIX)) return plaintext;
   if (!isEncryptionAvailable()) {
     console.warn('[secure-storage] Encryption not available, storing plaintext');
     return plaintext;
@@ -21,6 +22,7 @@ export function encryptString(plaintext: string): string {
 }
 
 export function decryptString(ciphertext: string): string {
+  if (typeof ciphertext !== 'string') return '';
   if (ciphertext === '') return ciphertext;
 
   // If it was stored as plaintext (no prefix), return as-is
