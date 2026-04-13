@@ -1156,12 +1156,10 @@ npm install @mozilla/readability
 `src/main/ipc/webview.ts`:
 ```ts
 import { ipcMain, webContents } from 'electron';
-import { readFileSync } from 'fs';
 import type { ExtractedContent } from '../../renderer/src/types';
 
-// Resolve Readability.js from node_modules so it runs inside the Webview
-const readabilityPath = require.resolve('@mozilla/readability/Readability.js');
-const readabilityScript = readFileSync(readabilityPath, 'utf-8');
+// @ts-ignore — Vite ?raw import bundles the file content at compile time
+import readabilityScript from '@mozilla/readability/Readability.js?raw';
 
 export function setupWebviewIPC(): void {
   ipcMain.handle('webview:extract', async (_, webContentId: number): Promise<ExtractedContent> => {

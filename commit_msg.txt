@@ -1,1 +1,0 @@
-feat: add company location field and update card display layout

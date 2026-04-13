@@ -99,6 +99,25 @@ export class OpenAICompatibleProvider implements AIProvider {
           }
         }
       }
+
+      // Flush decoder and process remaining buffer
+      buffer += decoder.decode();
+      const finalLines = buffer.split('\n');
+      for (const line of finalLines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed === 'data: [DONE]') continue;
+        if (trimmed.startsWith('data: ')) {
+          try {
+            const json = JSON.parse(trimmed.slice(6));
+            const delta = json.choices?.[0]?.delta?.content;
+            if (delta) {
+              yield delta;
+            }
+          } catch (err) {
+            console.warn('[OpenAICompatibleProvider] Malformed SSE line:', trimmed, err);
+          }
+        }
+      }
     } finally {
       reader.releaseLock();
     }
