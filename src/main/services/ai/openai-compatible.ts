@@ -9,24 +9,44 @@ export interface OpenAICompatibleProviderConfig {
 export class OpenAICompatibleProvider implements AIProvider {
   constructor(private config: OpenAICompatibleProviderConfig) {}
 
-  async chat(messages: AIChatMessage[], options?: { temperature?: number; maxTokens?: number }): Promise<string> {
+  private buildRequestBody(messages: AIChatMessage[], options?: { temperature?: number; maxTokens?: number }, stream = false) {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
     if (this.config.apiKey.trim()) {
       headers['Authorization'] = `Bearer ${this.config.apiKey}`;
     }
-
-    const response = await fetch(this.config.baseURL, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        model: this.config.model,
-        messages,
-        temperature: options?.temperature ?? 0.7,
-        max_tokens: options?.maxTokens ?? 2000,
-      }),
+    const body = JSON.stringify({
+      model: this.config.model,
+      messages,
+      temperature: options?.temperature ?? 0.7,
+      max_tokens: options?.maxTokens ?? 2000,
+      ...(stream ? { stream: true } : {}),
     });
+    return { headers, body };
+  }
+
+  private *parseSSELines(lines: string[]): Generator<string> {
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed === 'data: [DONE]') continue;
+      if (trimmed.startsWith('data: ')) {
+        try {
+          const json = JSON.parse(trimmed.slice(6));
+          const delta = json.choices?.[0]?.delta?.content;
+          if (delta) {
+            yield delta;
+          }
+        } catch (err) {
+          console.warn('[OpenAICompatibleProvider] Malformed SSE line:', trimmed, err);
+        }
+      }
+    }
+  }
+
+  async chat(messages: AIChatMessage[], options?: { temperature?: number; maxTokens?: number }): Promise<string> {
+    const { headers, body } = this.buildRequestBody(messages, options);
+    const response = await fetch(this.config.baseURL, { method: 'POST', headers, body });
 
     if (!response.ok) {
       const error = await response.text();
@@ -42,24 +62,8 @@ export class OpenAICompatibleProvider implements AIProvider {
   }
 
   async *chatStream(messages: AIChatMessage[], options?: { temperature?: number; maxTokens?: number }): AsyncGenerator<string, void> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    if (this.config.apiKey.trim()) {
-      headers['Authorization'] = `Bearer ${this.config.apiKey}`;
-    }
-
-    const response = await fetch(this.config.baseURL, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        model: this.config.model,
-        messages,
-        temperature: options?.temperature ?? 0.7,
-        max_tokens: options?.maxTokens ?? 2000,
-        stream: true,
-      }),
-    });
+    const { headers, body } = this.buildRequestBody(messages, options, true);
+    const response = await fetch(this.config.baseURL, { method: 'POST', headers, body });
 
     if (!response.ok) {
       const error = await response.text();
@@ -83,42 +87,19 @@ export class OpenAICompatibleProvider implements AIProvider {
         const lines = buffer.split('\n');
         buffer = lines.pop() ?? '';
 
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || trimmed === 'data: [DONE]') continue;
-          if (trimmed.startsWith('data: ')) {
-            try {
-              const json = JSON.parse(trimmed.slice(6));
-              const delta = json.choices?.[0]?.delta?.content;
-              if (delta) {
-                yield delta;
-              }
-            } catch (err) {
-              console.warn('[OpenAICompatibleProvider] Malformed SSE line:', trimmed, err);
-            }
-          }
+        for (const delta of this.parseSSELines(lines)) {
+          yield delta;
         }
       }
 
       // Flush decoder and process remaining buffer
       buffer += decoder.decode();
       const finalLines = buffer.split('\n');
-      for (const line of finalLines) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed === 'data: [DONE]') continue;
-        if (trimmed.startsWith('data: ')) {
-          try {
-            const json = JSON.parse(trimmed.slice(6));
-            const delta = json.choices?.[0]?.delta?.content;
-            if (delta) {
-              yield delta;
-            }
-          } catch (err) {
-            console.warn('[OpenAICompatibleProvider] Malformed SSE line:', trimmed, err);
-          }
-        }
+      for (const delta of this.parseSSELines(finalLines)) {
+        yield delta;
       }
     } finally {
+      await reader.cancel().catch(() => {});
       reader.releaseLock();
     }
   }
