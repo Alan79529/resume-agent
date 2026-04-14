@@ -39,7 +39,7 @@ When a JD is analyzed and the user has a saved resume, the AI should output a cr
   ```ts
   export interface Analysis {
     // ... existing fields ...
-    matchScore: number;           // 0-100
+    matchScore?: number | null;   // 0-100, or null/undefined when no resume is available
     missingSkills: string[];      // skills or keywords absent from resume
     matchSuggestions: string[];   // specific resume tweaks for this JD
   }
@@ -61,7 +61,7 @@ When a JD is analyzed and the user has a saved resume, the AI should output a cr
   - Lists missing skills and match suggestions in bullet points.
 
 ### Backward Compatibility
-- If the user has no saved resume, `matchScore` defaults to `0`, `missingSkills` and `matchSuggestions` default to empty arrays. The CardDetail simply hides the match section.
+- If the user has no saved resume, `matchScore` is omitted or set to `null`, `missingSkills` and `matchSuggestions` default to empty arrays. The CardDetail shows a neutral placeholder (e.g. "完善资源库以获取匹配度评分") instead of a 0-score badge.
 - Existing BattleCards without these fields continue to work because TypeScript interfaces are structural; missing fields are treated as `undefined`.
 
 ---
@@ -82,11 +82,33 @@ Allow users to practice interviewing against a specific BattleCard. The AI acts 
   - `mode: 'chat' | 'mock'`
   - `mockCardId: string | null`
   - `mockQuestionIndex: number`
+  - `mockMessages: ChatMessage[]` — isolated conversation history for the mock session
+
+### State Isolation
+To prevent confusion when the user switches cards mid-interview, `useCardsStore` listens to `selectedCardId` changes. Whenever the active card changes while in mock mode, the store automatically:
+1. Clears `chatStore.messages`
+2. Resets `chatStore.mode` to `'chat'`
+3. Clears `chatStore.mockCardId` and `chatStore.mockMessages`
+This ensures the user never sees a mock interview from Card A mixed with the content of Card B.
 - The UI indicates mock mode with a banner: "正在模拟面试：{companyName} · {positionName}"
 - User answers in the same input box. After each user message in mock mode:
   - The AI evaluates the answer (score 1-10 + brief feedback + improved phrasing)
   - Then asks the next question from `commonQuestions` (or a follow-up if exhausted)
-- The AI prompt for mock mode:
+
+### Context Assembly for Each Mock Turn
+Because the LLM backend is stateless, the full system context must be re-injected on every user turn. The frontend **does not** show the long system prompt in the UI message list. Instead, `ChatPanel` constructs the API payload dynamically:
+
+```ts
+const apiMessages = [
+  { role: 'system', content: buildMockPrompt(card, profile) },
+  ...mockMessages.map(m => ({ role: m.role, content: m.content })),
+  { role: 'user', content: userAnswer }
+];
+```
+
+This keeps the chat UI clean while guaranteeing the AI never forgets which company, position, or candidate it is interviewing.
+
+- The AI prompt for mock mode (`buildMockPrompt`):
   ```
   你是 {companyName} 的面试官，正在面试 {positionName} 岗位。
   当前候选人的简历要点：{resumeText snippet}
