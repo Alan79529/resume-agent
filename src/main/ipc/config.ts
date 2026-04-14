@@ -1,8 +1,9 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron';
 import { promises as fs } from 'node:fs';
 import { basename } from 'node:path';
+import { PDFParse } from 'pdf-parse';
 import { configStore, profileStore, cardStore, resourceStore } from '../store';
-import type { AppDataBackup, BattleCard, ResourceFile, DataTransferResult } from '../../shared/types';
+import type { AppDataBackup, BattleCard, ResourceFile, DataTransferResult, ResumePdfImportResult } from '../../shared/types';
 
 function getOwnerWindow(): BrowserWindow | undefined {
   return BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
@@ -56,6 +57,26 @@ function parseBackupPayload(json: string): AppDataBackup {
   };
 }
 
+function sanitizePdfText(value: string): string {
+  return value
+    .replace(/\u0000/g, ' ')
+    .replace(/\r/g, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+async function extractPdfTextFromBuffer(buffer: Buffer): Promise<string> {
+  const parser = new PDFParse({ data: new Uint8Array(buffer) });
+  try {
+    const result = await parser.getText();
+    return typeof result?.text === 'string' ? result.text : '';
+  } finally {
+    await parser.destroy();
+  }
+}
+
 export function setupConfigIPC(): void {
   ipcMain.handle('config:getApiKey', () => configStore.getApiKey());
   ipcMain.handle('config:setApiKey', (_, key: string) => {
@@ -75,6 +96,47 @@ export function setupConfigIPC(): void {
   ipcMain.handle('config:getProfile', () => profileStore.get());
   ipcMain.handle('config:setProfile', (_, profile: { resumeText?: string; selfIntroText?: string }) => {
     return profileStore.set(profile);
+  });
+  ipcMain.handle('config:importResumePdf', async (): Promise<ResumePdfImportResult> => {
+    const ownerWindow = getOwnerWindow();
+    const dialogResult = await dialog.showOpenDialog(ownerWindow, {
+      title: '导入 PDF 简历',
+      properties: ['openFile'],
+      filters: [{ name: 'PDF', extensions: ['pdf'] }]
+    });
+
+    if (dialogResult.canceled || dialogResult.filePaths.length === 0) {
+      return { success: false, message: '已取消导入 PDF' };
+    }
+
+    const filePath = dialogResult.filePaths[0];
+
+    try {
+      const buffer = await fs.readFile(filePath);
+      const text = sanitizePdfText(await extractPdfTextFromBuffer(buffer));
+
+      if (!text) {
+        return {
+          success: false,
+          message: '未从 PDF 中提取到可用文本，请尝试复制粘贴简历正文。',
+          filePath
+        };
+      }
+
+      return {
+        success: true,
+        message: `已导入：${basename(filePath)}（${text.length} 字）`,
+        text,
+        filePath
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'PDF 解析失败';
+      return {
+        success: false,
+        message: `PDF 解析失败：${message}`,
+        filePath
+      };
+    }
   });
 
   ipcMain.handle('config:exportData', async (): Promise<DataTransferResult> => {

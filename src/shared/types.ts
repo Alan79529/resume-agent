@@ -93,6 +93,13 @@ export interface DataTransferResult {
   filePath?: string;
 }
 
+export interface ResumePdfImportResult {
+  success: boolean;
+  message: string;
+  filePath?: string;
+  text?: string;
+}
+
 export interface WebviewTab {
   id: string;
   url: string;

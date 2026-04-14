@@ -57,6 +57,102 @@ function getMatchSummary(analysis: Analysis): string {
   return `**匹配分**: ${analysis.matchScore}\n\n**缺失技能**:\n${missing}\n\n**优化建议**:\n${suggestions}`;
 }
 
+const RECRUITER_TOKENS = [
+  '女士',
+  '先生',
+  '活跃',
+  '沟通',
+  '微信',
+  '招聘者',
+  '招聘经理',
+  '招聘主管',
+  '校招经理',
+  '校园招聘',
+  'hr',
+  'HR',
+  '人事',
+  '猎头'
+];
+
+const JOB_TOKENS = ['工程师', '开发', '实习', '算法', '测试', '产品', '运营', '岗位', 'AI', 'Agent', '后端', '前端'];
+const COMPANY_TOKENS = ['有限公司', '公司', '科技', '信息', '集团', '网络', '教育', '软件', '银行', '研究院'];
+
+function cleanDisplayText(value: string): string {
+  const stripPrivateUse = (text: string) =>
+    Array.from(text)
+      .filter((char) => {
+        const code = char.codePointAt(0) ?? 0;
+        const inBmpPrivate = code >= 0xe000 && code <= 0xf8ff;
+        const inSupPrivateA = code >= 0xf0000 && code <= 0xffffd;
+        const inSupPrivateB = code >= 0x100000 && code <= 0x10fffd;
+        return !inBmpPrivate && !inSupPrivateA && !inSupPrivateB;
+      })
+      .join('');
+
+  return stripPrivateUse(String(value || ''))
+    .replace(/\uFFFD/g, '')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/\ufeff/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function stripSalaryText(value: string): string {
+  return cleanDisplayText(value).replace(
+    /\s*\d+(?:\.\d+)?(?:\s*-\s*\d+(?:\.\d+)?)?\s*(?:k|K|千|万|元\/天|元\/月|万\/年)/g,
+    ''
+  );
+}
+
+function isRecruiterText(value: string): boolean {
+  const text = cleanDisplayText(value);
+  if (!text) return false;
+  return RECRUITER_TOKENS.some((token) => text.includes(token)) || /^[\u4e00-\u9fa5]{1,4}(女士|先生)/.test(text);
+}
+
+function looksLikeJob(value: string): boolean {
+  const text = stripSalaryText(value);
+  return Boolean(text) && JOB_TOKENS.some((token) => text.includes(token)) && !isRecruiterText(text);
+}
+
+function looksLikeCompany(value: string): boolean {
+  const text = cleanDisplayText(value);
+  return Boolean(text) && COMPANY_TOKENS.some((token) => text.includes(token)) && !isRecruiterText(text);
+}
+
+function hasUsefulChars(value: string): boolean {
+  return /[\u4e00-\u9fa5A-Za-z]/.test(value);
+}
+
+function normalizeCompanyName(value: string): string {
+  const text = cleanDisplayText(value).replace(/招聘$/i, '').trim();
+  if (!text || isRecruiterText(text) || !hasUsefulChars(text)) return '未知公司';
+  return text;
+}
+
+function normalizePositionName(value: string): string {
+  const text = stripSalaryText(value).trim();
+  if (!text || isRecruiterText(text) || !hasUsefulChars(text)) return '未知岗位';
+  if (/^(?:元\/天|元\/月|万\/年)$/i.test(text)) return '未知岗位';
+  return text;
+}
+
+function parseFromTitle(title: string): { companyName: string; positionName: string } {
+  const cleanTitle = cleanDisplayText(title).replace(/\s*[_-]\s*BOSS直聘.*$/i, '').trim();
+  const parts = cleanTitle
+    .split(/[·|｜-]/)
+    .map((part) => stripSalaryText(part))
+    .map((part) => cleanDisplayText(part))
+    .filter(Boolean);
+
+  const dedupedParts = Array.from(new Set(parts));
+  const positionName = dedupedParts.find((part) => looksLikeJob(part)) ?? '';
+  const companyName =
+    dedupedParts.find((part) => looksLikeCompany(part)) ?? dedupedParts.find((part) => !isRecruiterText(part)) ?? '';
+
+  return { companyName, positionName };
+}
+
 export const ChatPanel: React.FC = () => {
   const [input, setInput] = useState('');
   const [profile, setProfile] = useState<ProfileData>(DEFAULT_PROFILE);
@@ -227,7 +323,7 @@ export const ChatPanel: React.FC = () => {
       const extracted = await api.extractWebview(webview.getWebContentsId());
       addMessage(
         'assistant',
-        `已提取: ${extracted.title}\n类型: ${extracted.pageType}\n\n正在请求 AI 分析，预计 15-30 秒...`
+        `已提取: ${extracted.title}\n类型: ${extracted.pageType}\n正文长度: ${extracted.content.length} 字（此处仅展示标题预览）\n\n正在请求 AI 分析，预计 15-30 秒...`
       );
 
       const analysis = await api.analyzeContent(extracted);
@@ -248,9 +344,13 @@ export const ChatPanel: React.FC = () => {
     if (!pendingAnalysis) return;
     const { extracted, analysis } = pendingAnalysis;
 
-    let companyName = '未知公司';
-    let positionName = '未知岗位';
+    let companyName = '';
+    let positionName = '';
     const content = extracted.content;
+
+    const fromTitle = parseFromTitle(extracted.title);
+    companyName = fromTitle.companyName;
+    positionName = fromTitle.positionName;
 
     const companyPatterns = [
       /公司名称[:：]\s*([^\n]+)/i,
@@ -258,27 +358,57 @@ export const ChatPanel: React.FC = () => {
       /([^\n]{2,20})\s*[|·-]\s*([^\n]{2,30})/
     ];
 
-    for (const pattern of companyPatterns) {
-      const match = content.match(pattern);
-      if (!match) continue;
-      if (match[1] && match[1].trim().length > 1) {
-        companyName = match[1].trim();
+    if (!companyName || !positionName) {
+      for (const pattern of companyPatterns) {
+        const match = content.match(pattern);
+        if (!match) continue;
+
+        const matchedCompany = cleanDisplayText(match[1] ?? '');
+        const matchedPosition = cleanDisplayText(match[2] ?? '');
+
+        if (!companyName && matchedCompany.length > 1 && !isRecruiterText(matchedCompany)) {
+          companyName = matchedCompany;
+        }
+        if (!positionName && matchedPosition.length > 1 && looksLikeJob(matchedPosition)) {
+          positionName = stripSalaryText(matchedPosition);
+        }
+
+        if (companyName && positionName) {
+          break;
+        }
       }
-      if (match[2] && match[2].trim().length > 1) {
-        positionName = match[2].trim();
-      }
-      break;
     }
 
-    if (companyName === '未知公司') {
-      const cleanTitle = extracted.title.replace(/_BOSS直聘$/, '').replace(/招聘$/, '').replace(/实习$/, '').trim();
-      const titleParts = cleanTitle.split(/[·|-]/);
-      if (titleParts.length >= 2) {
-        companyName = titleParts[0].trim();
-        positionName = titleParts[1].trim();
-      } else {
-        companyName = cleanTitle || '未知公司';
+    if (!companyName || !positionName) {
+      const topLines = content
+        .split('\n')
+        .map((line) => cleanDisplayText(line))
+        .filter(Boolean)
+        .slice(0, 40);
+
+      for (const line of topLines) {
+        if (!positionName && looksLikeJob(line)) {
+          positionName = stripSalaryText(line);
+        }
+        if (!companyName && looksLikeCompany(line)) {
+          companyName = line;
+        }
+        if (companyName && positionName) {
+          break;
+        }
       }
+    }
+
+    if (!companyName) {
+      const cleanTitle = cleanDisplayText(extracted.title);
+      const titleParts = cleanTitle.split(/[·|-]/).map((part) => cleanDisplayText(part));
+      companyName = titleParts.find((part) => part && !isRecruiterText(part)) || '';
+    }
+
+    if (!positionName) {
+      const cleanTitle = cleanDisplayText(extracted.title);
+      const titleParts = cleanTitle.split(/[·|-]/).map((part) => cleanDisplayText(part));
+      positionName = titleParts.find((part) => looksLikeJob(part)) || '';
     }
 
     let companyLocation = '';
@@ -287,13 +417,13 @@ export const ChatPanel: React.FC = () => {
     for (const pattern of locationPatterns) {
       const match = content.match(pattern);
       if (match?.[1]) {
-        companyLocation = match[1].trim();
+        companyLocation = cleanDisplayText(match[1]);
         break;
       }
     }
 
-    companyName = companyName.replace(/\s+/g, ' ').replace(/招聘$/i, '').trim();
-    positionName = positionName.replace(/\s+/g, ' ').trim();
+    companyName = normalizeCompanyName(companyName);
+    positionName = normalizePositionName(positionName);
 
     await createCard({
       companyName,
@@ -388,13 +518,13 @@ export const ChatPanel: React.FC = () => {
       </div>
 
       {mode === 'mock' && activeMockCard ? (
-        <div className="px-4 py-2 bg-indigo-50 border-b border-indigo-100 flex items-center justify-between">
-          <p className="text-sm text-indigo-700">
+        <div className="px-4 py-2 bg-indigo-50 border-b border-indigo-100 flex items-start justify-between gap-2">
+          <p className="text-sm text-indigo-700 min-w-0 break-words">
             正在模拟面试: {activeMockCard.companyName} · {activeMockCard.positionName}
           </p>
           <button
             onClick={handleExitMock}
-            className="px-2.5 py-1 text-xs text-indigo-700 border border-indigo-200 rounded-md hover:bg-indigo-100 transition-colors"
+            className="px-2.5 py-1 text-xs text-indigo-700 border border-indigo-200 rounded-md hover:bg-indigo-100 transition-colors shrink-0"
           >
             退出模拟面试
           </button>

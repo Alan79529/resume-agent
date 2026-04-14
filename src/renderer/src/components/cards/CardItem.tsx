@@ -9,6 +9,13 @@ interface CardItemProps {
   onClick: () => void;
 }
 
+const twoLineClampStyle: React.CSSProperties = {
+  display: '-webkit-box',
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: 'vertical',
+  overflow: 'hidden'
+};
+
 const statusConfig: Record<CardStatus, { label: string; color: string; bg: string }> = {
   pending_analysis: { label: '待分析', color: 'text-gray-600', bg: 'bg-gray-100' },
   preparing: { label: '待准备', color: 'text-blue-600', bg: 'bg-blue-50' },
@@ -17,9 +24,33 @@ const statusConfig: Record<CardStatus, { label: string; color: string; bg: strin
   reviewed: { label: '已复盘', color: 'text-emerald-600', bg: 'bg-emerald-50' }
 };
 
+function sanitizeCardLabel(value: string, fallback = ''): string {
+  const stripPrivateUse = (text: string) =>
+    Array.from(text)
+      .filter((char) => {
+        const code = char.codePointAt(0) ?? 0
+        const inBmpPrivate = code >= 0xe000 && code <= 0xf8ff
+        const inSupPrivateA = code >= 0xf0000 && code <= 0xffffd
+        const inSupPrivateB = code >= 0x100000 && code <= 0x10fffd
+        return !inBmpPrivate && !inSupPrivateA && !inSupPrivateB
+      })
+      .join('')
+
+  const clean = stripPrivateUse(String(value || ''))
+    .replace(/\uFFFD/g, '')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/\ufeff/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return clean || fallback;
+}
+
 export const CardItem: React.FC<CardItemProps> = ({ card, isSelected, onClick }) => {
   const { deleteCard, selectCard } = useCardsStore();
   const status = statusConfig[card.status];
+  const companyName = sanitizeCardLabel(card.companyName, '未知公司');
+  const companyLocation = sanitizeCardLabel(card.companyLocation);
+  const positionName = sanitizeCardLabel(card.positionName, '未知岗位');
   
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return null;
@@ -29,7 +60,7 @@ export const CardItem: React.FC<CardItemProps> = ({ card, isSelected, onClick })
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm(`确定要删除 "${card.companyName} · ${card.positionName}" 吗？`)) {
+    if (confirm(`确定要删除 "${companyName} · ${positionName}" 吗？`)) {
       await deleteCard(card.id);
       selectCard(null);
     }
@@ -48,11 +79,23 @@ export const CardItem: React.FC<CardItemProps> = ({ card, isSelected, onClick })
     >
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
-          <h3 className="font-medium text-gray-900 truncate">{card.companyName}</h3>
-          {card.companyLocation && (
-            <p className="text-xs text-gray-400 truncate mt-0.5">{card.companyLocation}</p>
+          <h3
+            className="font-medium text-gray-900 leading-5 break-all"
+            title={companyName}
+            style={twoLineClampStyle}
+          >
+            {companyName}
+          </h3>
+          {companyLocation && (
+            <p className="text-xs text-gray-400 truncate mt-0.5">{companyLocation}</p>
           )}
-          <p className="text-sm text-gray-500 truncate mt-0.5">{card.positionName}</p>
+          <p
+            className="text-sm text-gray-500 mt-0.5 leading-5 break-all"
+            title={positionName}
+            style={twoLineClampStyle}
+          >
+            {positionName}
+          </p>
         </div>
         <button 
           className="p-1 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"

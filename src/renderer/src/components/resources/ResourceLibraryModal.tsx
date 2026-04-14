@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FileText, UserRound, Save, X } from 'lucide-react';
+import { FileText, Upload, UserRound, Save, X } from 'lucide-react';
 import { api } from '../../utils/ipc';
 
 interface ResourceLibraryModalProps {
@@ -11,9 +11,15 @@ export const ResourceLibraryModal: React.FC<ResourceLibraryModalProps> = ({ isOp
   const [resumeText, setResumeText] = useState('');
   const [selfIntroText, setSelfIntroText] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isImportingPdf, setIsImportingPdf] = useState(false);
+  const [importMessage, setImportMessage] = useState('');
+  const [importError, setImportError] = useState(false);
 
   useEffect(() => {
     if (!isOpen) {
+      setImportMessage('');
+      setImportError(false);
+      setIsImportingPdf(false);
       return;
     }
 
@@ -43,6 +49,26 @@ export const ResourceLibraryModal: React.FC<ResourceLibraryModalProps> = ({ isOp
     }
   };
 
+  const handleImportPdf = async () => {
+    setIsImportingPdf(true);
+    setImportMessage('');
+    setImportError(false);
+    try {
+      const result = await api.importResumePdf();
+      if (result.success && result.text) {
+        setResumeText(result.text);
+      }
+      setImportMessage(result.message);
+      setImportError(!result.success);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '导入失败';
+      setImportMessage(`导入失败：${message}`);
+      setImportError(true);
+    } finally {
+      setIsImportingPdf(false);
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
@@ -69,12 +95,26 @@ export const ResourceLibraryModal: React.FC<ResourceLibraryModalProps> = ({ isOp
 
         <div className="p-6 space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <span className="inline-flex items-center gap-2">
-                <FileText size={16} />
-                我的简历文本
-              </span>
-            </label>
+            <div className="flex items-center justify-between mb-2 gap-3">
+              <label className="block text-sm font-medium text-gray-700">
+                <span className="inline-flex items-center gap-2">
+                  <FileText size={16} />
+                  我的简历文本
+                </span>
+              </label>
+              <button
+                onClick={handleImportPdf}
+                disabled={isImportingPdf}
+                className="px-3 py-1.5 border border-gray-300 text-gray-700 text-xs rounded-md hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
+              >
+                <Upload size={14} />
+                {isImportingPdf ? '解析中...' : '上传 PDF'}
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mb-2">支持上传 PDF 简历，系统会自动提取文本并覆盖当前简历内容。</p>
+            {importMessage ? (
+              <p className={`text-xs mb-2 ${importError ? 'text-red-600' : 'text-green-600'}`}>{importMessage}</p>
+            ) : null}
             <textarea
               value={resumeText}
               onChange={(event) => setResumeText(event.target.value)}

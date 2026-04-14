@@ -4,7 +4,8 @@ import type {
   Analysis,
   AIChatMessage,
   ProfileData,
-  DataTransferResult
+  DataTransferResult,
+  ResumePdfImportResult
 } from '../types'
 
 declare global {
@@ -29,6 +30,7 @@ declare global {
       setModel: (model: string) => Promise<boolean>
       getProfile: () => Promise<ProfileData>
       setProfile: (profile: Partial<ProfileData>) => Promise<ProfileData>
+      importResumePdf: () => Promise<ResumePdfImportResult>
       exportData: () => Promise<DataTransferResult>
       importData: () => Promise<DataTransferResult>
     }

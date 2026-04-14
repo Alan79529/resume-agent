@@ -43,6 +43,7 @@ const api = {
   getProfile: () => ipcRenderer.invoke('config:getProfile'),
   setProfile: (profile: { resumeText?: string; selfIntroText?: string }) =>
     ipcRenderer.invoke('config:setProfile', profile),
+  importResumePdf: () => ipcRenderer.invoke('config:importResumePdf'),
   exportData: () => ipcRenderer.invoke('config:exportData'),
   importData: () => ipcRenderer.invoke('config:importData')
 }

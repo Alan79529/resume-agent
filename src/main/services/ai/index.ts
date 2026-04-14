@@ -105,6 +105,17 @@ export function createProvider(): AIProvider {
   const apiKey = configStore.getApiKey();
   const baseURL = configStore.getApiBaseUrl();
   const model = configStore.getModel();
+
+  try {
+    new URL(baseURL);
+  } catch {
+    throw new Error('请先在设置中填写有效的 API Base URL');
+  }
+
+  if (!model.trim()) {
+    throw new Error('请先在设置中填写有效的模型名称');
+  }
+
   return new OpenAICompatibleProvider({ baseURL, model, apiKey });
 }
 

@@ -30,6 +30,27 @@ function getScoreColor(score: number): string {
   return 'bg-green-100 text-green-700';
 }
 
+function sanitizeCardLabel(value: string, fallback = ''): string {
+  const stripPrivateUse = (text: string) =>
+    Array.from(text)
+      .filter((char) => {
+        const code = char.codePointAt(0) ?? 0
+        const inBmpPrivate = code >= 0xe000 && code <= 0xf8ff
+        const inSupPrivateA = code >= 0xf0000 && code <= 0xffffd
+        const inSupPrivateB = code >= 0x100000 && code <= 0x10fffd
+        return !inBmpPrivate && !inSupPrivateA && !inSupPrivateB
+      })
+      .join('')
+
+  const clean = stripPrivateUse(String(value || ''))
+    .replace(/\uFFFD/g, '')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/\ufeff/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return clean || fallback;
+}
+
 export const CardDetail: React.FC = () => {
   const { selectedCardId, cards, updateCard, selectCard } = useCardsStore();
   const { enterMockMode } = useChatStore();
@@ -63,6 +84,9 @@ export const CardDetail: React.FC = () => {
   const hasScore = typeof score === 'number' && score > 0;
   const missingSkills = card.analysis.missingSkills ?? [];
   const matchSuggestions = card.analysis.matchSuggestions ?? [];
+  const companyName = sanitizeCardLabel(card.companyName, '未知公司');
+  const companyLocation = sanitizeCardLabel(card.companyLocation);
+  const positionName = sanitizeCardLabel(card.positionName, '未知岗位');
 
   return (
     <div className="h-full overflow-y-auto p-6">
@@ -74,9 +98,9 @@ export const CardDetail: React.FC = () => {
           <ArrowLeft size={16} />
           返回对话
         </button>
-        <h1 className="text-xl font-bold text-gray-900">{card.companyName}</h1>
-        {card.companyLocation ? <p className="text-sm text-gray-400 mt-1">{card.companyLocation}</p> : null}
-        <p className="text-gray-600 mt-1">{card.positionName}</p>
+        <h1 className="text-xl font-bold text-gray-900">{companyName}</h1>
+        {companyLocation ? <p className="text-sm text-gray-400 mt-1">{companyLocation}</p> : null}
+        <p className="text-gray-600 mt-1">{positionName}</p>
 
         <div className="flex items-center gap-3 mt-4 flex-wrap">
           <select
