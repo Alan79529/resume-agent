@@ -1,4 +1,11 @@
-import type { BattleCard, ExtractedContent, Analysis, AIChatMessage } from '../types'
+import type {
+  BattleCard,
+  ExtractedContent,
+  Analysis,
+  AIChatMessage,
+  ProfileData,
+  DataTransferResult
+} from '../types'
 
 declare global {
   interface Window {
@@ -20,6 +27,10 @@ declare global {
       setApiBaseUrl: (url: string) => Promise<boolean>
       getModel: () => Promise<string>
       setModel: (model: string) => Promise<boolean>
+      getProfile: () => Promise<ProfileData>
+      setProfile: (profile: Partial<ProfileData>) => Promise<ProfileData>
+      exportData: () => Promise<DataTransferResult>
+      importData: () => Promise<DataTransferResult>
     }
   }
 }

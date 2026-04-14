@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Settings } from 'lucide-react';
+import { Plus, Settings, FileText } from 'lucide-react';
 import { useCardsStore } from '../../stores/cards';
 import { CardItem } from './CardItem';
 import { SettingsPanel } from '../settings/SettingsPanel';
+import { ResourceLibraryModal } from '../resources/ResourceLibraryModal';
 
 export const CardList: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
+  const [showResourceLibrary, setShowResourceLibrary] = useState(false);
   const { cards, selectedCardId, loadCards, selectCard, createCard } = useCardsStore();
 
   useEffect(() => {
@@ -28,7 +30,10 @@ export const CardList: React.FC = () => {
         checklist: [],
         selfIntroduction: '',
         resumeSuggestions: [],
-        keyPoints: []
+        keyPoints: [],
+        matchScore: null,
+        missingSkills: [],
+        matchSuggestions: []
       },
       schedule: {
         interviewTime: null,
@@ -58,6 +63,13 @@ export const CardList: React.FC = () => {
             <p className="text-sm text-gray-500 mt-0.5">{cards.length} 个面试机会</p>
           </div>
           <div className="flex gap-1">
+            <button
+              onClick={() => setShowResourceLibrary(true)}
+              className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+              title="资源库"
+            >
+              <FileText size={18} />
+            </button>
             <button
               onClick={() => setShowSettings(true)}
               className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
@@ -95,6 +107,10 @@ export const CardList: React.FC = () => {
       </div>
       
       <SettingsPanel isOpen={showSettings} onClose={() => setShowSettings(false)} />
+      <ResourceLibraryModal
+        isOpen={showResourceLibrary}
+        onClose={() => setShowResourceLibrary(false)}
+      />
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { BattleCard, CardStatus } from '../types';
 import { api } from '../utils/ipc';
+import { useChatStore } from './chat';
 
 interface CardsState {
   cards: BattleCard[];
@@ -35,6 +36,11 @@ export const useCardsStore = create<CardsState>((set, get) => ({
   },
 
   selectCard: (id) => {
+    const chatState = useChatStore.getState();
+    if (chatState.mode === 'mock' && id !== chatState.mockCardId) {
+      chatState.clearMessages();
+      chatState.resetMockState();
+    }
     set({ selectedCardId: id });
   },
 
