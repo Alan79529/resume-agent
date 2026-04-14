@@ -1,6 +1,7 @@
 import { ipcMain, type IpcMainEvent } from 'electron';
 import { analyzeJobContent } from '../services/ai';
 import { createProvider } from '../services/ai';
+import { profileStore } from '../store';
 import type { ExtractedContent, AIChatMessage } from '../../shared/types';
 
 function sendStreamEvent(
@@ -16,7 +17,8 @@ function sendStreamEvent(
 
 export function setupAIIPC(): void {
   ipcMain.handle('ai:analyze', async (_, extracted: ExtractedContent) => {
-    return analyzeJobContent(extracted);
+    const profile = profileStore.get();
+    return analyzeJobContent(extracted, profile);
   });
 
   ipcMain.on('ai:chatStream', async (event: IpcMainEvent, messages: AIChatMessage[], requestId: string) => {

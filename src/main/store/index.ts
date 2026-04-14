@@ -12,6 +12,10 @@ const store = new Store<StoreSchema>({
       model: 'deepseek-chat',
       defaultReminderMinutes: 60
     },
+    profile: {
+      resumeText: '',
+      selfIntroText: ''
+    },
     resources: []
   }
 })
@@ -42,6 +46,10 @@ export const cardStore = {
   delete: (id: string): void => {
     const cards = store.get('battleCards')
     store.set('battleCards', cards.filter((c) => c.id !== id))
+  },
+
+  replaceAll: (cards: StoreSchema['battleCards']): void => {
+    store.set('battleCards', cards)
   }
 }
 
@@ -90,6 +98,17 @@ export const configStore = {
   }
 }
 
+// Profile operations
+export const profileStore = {
+  get: (): StoreSchema['profile'] => store.get('profile'),
+  set: (profile: Partial<StoreSchema['profile']>): StoreSchema['profile'] => {
+    const current = store.get('profile')
+    const next = { ...current, ...profile }
+    store.set('profile', next)
+    return next
+  }
+}
+
 // Resource operations
 export const resourceStore = {
   getAll: (): StoreSchema['resources'] => store.get('resources'),
@@ -100,6 +119,9 @@ export const resourceStore = {
   delete: (id: string): void => {
     const resources = store.get('resources')
     store.set('resources', resources.filter((r) => r.id !== id))
+  },
+  replaceAll: (resources: StoreSchema['resources']): void => {
+    store.set('resources', resources)
   }
 }
 

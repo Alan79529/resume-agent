@@ -40,6 +40,11 @@ const api = {
   setApiBaseUrl: (url: string) => ipcRenderer.invoke('config:setApiBaseUrl', url),
   getModel: () => ipcRenderer.invoke('config:getModel'),
   setModel: (model: string) => ipcRenderer.invoke('config:setModel', model),
+  getProfile: () => ipcRenderer.invoke('config:getProfile'),
+  setProfile: (profile: { resumeText?: string; selfIntroText?: string }) =>
+    ipcRenderer.invoke('config:setProfile', profile),
+  exportData: () => ipcRenderer.invoke('config:exportData'),
+  importData: () => ipcRenderer.invoke('config:importData')
 }
 
 if (process.contextIsolated) {

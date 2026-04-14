@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { MoreVertical, Calendar, Trash2 } from 'lucide-react';
+import React from 'react';
+import { Calendar, Trash2 } from 'lucide-react';
 import { useCardsStore } from '../../stores/cards';
 import type { BattleCard, CardStatus } from '../../types';
 
@@ -18,7 +18,6 @@ const statusConfig: Record<CardStatus, { label: string; color: string; bg: strin
 };
 
 export const CardItem: React.FC<CardItemProps> = ({ card, isSelected, onClick }) => {
-  const [showDelete, setShowDelete] = useState(false);
   const { deleteCard, selectCard } = useCardsStore();
   const status = statusConfig[card.status];
   

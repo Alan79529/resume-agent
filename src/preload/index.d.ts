@@ -1,5 +1,5 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-import type { BattleCard, ExtractedContent, Analysis, AIChatMessage } from '../shared/types'
+import type { BattleCard, ExtractedContent, Analysis, AIChatMessage, ProfileData, DataTransferResult } from '../shared/types'
 
 // Custom API interface
 interface CustomAPI {
@@ -20,6 +20,10 @@ interface CustomAPI {
   setApiBaseUrl: (url: string) => Promise<boolean>
   getModel: () => Promise<string>
   setModel: (model: string) => Promise<boolean>
+  getProfile: () => Promise<ProfileData>
+  setProfile: (profile: Partial<ProfileData>) => Promise<ProfileData>
+  exportData: () => Promise<DataTransferResult>
+  importData: () => Promise<DataTransferResult>
 }
 
 declare global {

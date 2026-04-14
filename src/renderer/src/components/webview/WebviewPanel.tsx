@@ -42,7 +42,7 @@ export const WebviewPanel: React.FC = () => {
               src={tab.url}
               data-tab-id={tab.id}
               className="w-full h-full"
-              allowpopups=""
+              allowpopups={true}
               partition="persist:webview"
               webpreferences="contextIsolation=yes,nodeIntegration=no,sandbox=yes"
             />

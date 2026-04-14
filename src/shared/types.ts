@@ -17,6 +17,14 @@ export interface Analysis {
   selfIntroduction: string;
   resumeSuggestions: string[];
   keyPoints: string[];
+  matchScore?: number | null;
+  missingSkills: string[];
+  matchSuggestions: string[];
+}
+
+export interface ProfileData {
+  resumeText: string;
+  selfIntroText: string;
 }
 
 export interface Schedule {
@@ -67,7 +75,22 @@ export interface StoreSchema {
     model: string;
     defaultReminderMinutes: number;
   };
+  profile: ProfileData;
   resources: ResourceFile[];
+}
+
+export interface AppDataBackup {
+  version: 1;
+  exportedAt: string;
+  battleCards: BattleCard[];
+  profile: ProfileData;
+  resources: ResourceFile[];
+}
+
+export interface DataTransferResult {
+  success: boolean;
+  message: string;
+  filePath?: string;
 }
 
 export interface WebviewTab {
