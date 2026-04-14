@@ -48,6 +48,7 @@ export const ChatPanel: React.FC = () => {
 
   const handleSend = () => {
     if (!input.trim()) return;
+    if (requestIdRef.current) return; // prevent concurrent sends while streaming
     addMessage('user', input);
     const userInput = input;
     setInput('');
@@ -93,8 +94,9 @@ export const ChatPanel: React.FC = () => {
       const summary = `## 分析完成 ✅\n\n**${extracted.title}**\n\n**公司业务**: ${analysis.companySummary}\n\n**高频问题**:\n${analysis.commonQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n\n**注意事项**:\n${analysis.warnings.map(w => `- ${w}`).join('\n')}\n\n点击"保存为作战卡"将此分析保存，或继续浏览其他岗位。`;
 
       addMessage('assistant', summary);
-    } catch (error: any) {
-      addMessage('assistant', `❌ 分析失败: ${error.message}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '未知错误';
+      addMessage('assistant', `❌ 分析失败: ${message}`);
     } finally {
       setLoading(false);
     }
@@ -151,9 +153,7 @@ export const ChatPanel: React.FC = () => {
     ];
     
     for (const pattern of locationPatterns) {
-      const match = typeof pattern === 'object' && 'exec' in pattern 
-        ? pattern 
-        : content.match(pattern as RegExp);
+      const match = content.match(pattern);
       if (match && match[1]) {
         companyLocation = match[1].trim();
         break;
@@ -243,7 +243,12 @@ export const ChatPanel: React.FC = () => {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
             placeholder="输入消息..."
             className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
           />
