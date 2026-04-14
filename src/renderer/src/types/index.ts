@@ -107,4 +107,5 @@ export interface ExtractedContent {
   content: string;
   pageType: PageType;
   timestamp: number;
+  source: 'readability' | 'fallback';
 }
