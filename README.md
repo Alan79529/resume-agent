@@ -2,6 +2,14 @@
 
 Resume-Agent is a desktop app for job-search preparation. It helps you extract JD pages, generate interview battle cards, run AI mock interviews, and manage your personal resume/profile context.
 
+## Download (v1.0.0)
+
+- Release page: [v1.0.0](https://github.com/Alan79529/resume-agent/releases/tag/v1.0.0)
+- Windows installer: [resume-agent-1.0.0-setup.exe](https://github.com/Alan79529/resume-agent/releases/download/v1.0.0/resume-agent-1.0.0-setup.exe)
+
+> Note: current installer is not code-signed. Windows may show an "Unknown publisher" warning.
+> This does not affect runtime behavior, but users should confirm the download source is the official GitHub release page above.
+
 ## Core Capabilities
 
 - **JD Analysis + Battle Card**
@@ -52,6 +60,14 @@ npm run dev
 npm run build
 ```
 
+### 4. Build Windows installer
+
+```bash
+npx electron-builder --win --x64 --config.win.signAndEditExecutable=false
+```
+
+Generated files are under `dist/`.
+
 ## API Configuration
 
 Open **Settings** in the app and configure:
@@ -88,9 +104,25 @@ Current builder publish config:
 
 ### Release Flow
 
-1. Build and publish new app version with `electron-builder`.
-2. Ensure release artifacts and `latest.yml` are uploaded to the GitHub Release.
-3. End users receive update checks automatically in packaged app.
+1. Update app version in `package.json`.
+2. Build desktop package:
+   ```bash
+   npm run build
+   npx electron-builder --win --x64 --config.win.signAndEditExecutable=false
+   ```
+3. Upload these files to the same GitHub Release tag:
+   - `resume-agent-<version>-setup.exe`
+   - `resume-agent-<version>-setup.exe.blockmap`
+   - `latest.yml`
+4. End users already on packaged app will receive update checks automatically.
+
+### Current Published Release
+
+- Tag: `v1.0.0`
+- Assets:
+  - `resume-agent-1.0.0-setup.exe`
+  - `resume-agent-1.0.0-setup.exe.blockmap`
+  - `latest.yml`
 
 ## Security Notes
 
