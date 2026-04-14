@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Send, Sparkles, Save, X } from 'lucide-react';
 import { useChatStore } from '../../stores/chat';
 import { useCardsStore } from '../../stores/cards';
@@ -13,15 +13,57 @@ export const ChatPanel: React.FC = () => {
     extracted: ExtractedContent;
     analysis: Analysis;
   } | null>(null);
+  const requestIdRef = useRef<string | null>(null);
   
-  const { addMessage, setLoading } = useChatStore();
+  const { addMessage, updateLastAssistantMessage, setLoading } = useChatStore();
   const { createCard } = useCardsStore();
   const webviewRefs = useWebviewStore();
+
+  useEffect(() => {
+    const unsubscribeChunk = api.onChatStreamChunk((requestId, chunk) => {
+      if (requestIdRef.current === requestId) {
+        updateLastAssistantMessage(chunk);
+      }
+    });
+    const unsubscribeDone = api.onChatStreamDone((requestId) => {
+      if (requestIdRef.current === requestId) {
+        setLoading(false);
+        requestIdRef.current = null;
+      }
+    });
+    const unsubscribeError = api.onChatStreamError((requestId, error) => {
+      if (requestIdRef.current === requestId) {
+        updateLastAssistantMessage(`\n\n❌ 错误: ${error}`);
+        setLoading(false);
+        requestIdRef.current = null;
+      }
+    });
+
+    return () => {
+      unsubscribeChunk();
+      unsubscribeDone();
+      unsubscribeError();
+    };
+  }, [updateLastAssistantMessage, setLoading]);
 
   const handleSend = () => {
     if (!input.trim()) return;
     addMessage('user', input);
+    const userInput = input;
     setInput('');
+
+    const requestId = Math.random().toString(36).substring(2, 9);
+    requestIdRef.current = requestId;
+    setLoading(true);
+    addMessage('assistant', '');
+
+    api.chatStream(
+      [
+        { role: 'system', content: '你是一个专业的面试辅导助手，帮助求职者准备技术面试。回答要简洁、实用。' },
+        { role: 'user', content: userInput }
+      ],
+      requestId
+    );
   };
 
   const handleExtract = async () => {
@@ -32,7 +74,7 @@ export const ChatPanel: React.FC = () => {
     }
 
     setLoading(true);
-    addMessage('assistant', '正在提取页面内容...');
+    addMessage('assistant', '🔍 正在提取网页内容...');
 
     try {
       const webview = document.querySelector(`webview[data-tab-id="${activeTab.id}"]`) as Electron.WebviewTag;
@@ -42,25 +84,13 @@ export const ChatPanel: React.FC = () => {
 
       const extracted = await api.extractWebview(webview.getWebContentsId());
       
-      addMessage('assistant', `已提取: ${extracted.title}\n类型: ${extracted.pageType}`);
+      addMessage('assistant', `✅ 已提取: ${extracted.title}\n类型: ${extracted.pageType}\n\n⏳ 正在请求大模型分析，预计需要 15-30 秒，请耐心等待...`);
       
       const analysis = await api.analyzeContent(extracted);
       
       setPendingAnalysis({ extracted, analysis });
       
-      const summary = `## 分析完成 ✅
-
-**${extracted.title}**
-
-**公司业务**: ${analysis.companySummary}
-
-**高频问题**:
-${analysis.commonQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}
-
-**注意事项**:
-${analysis.warnings.map(w => `- ${w}`).join('\n')}
-
-点击"保存为作战卡"将此分析保存，或继续浏览其他岗位。`;
+      const summary = `## 分析完成 ✅\n\n**${extracted.title}**\n\n**公司业务**: ${analysis.companySummary}\n\n**高频问题**:\n${analysis.commonQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n\n**注意事项**:\n${analysis.warnings.map(w => `- ${w}`).join('\n')}\n\n点击"保存为作战卡"将此分析保存，或继续浏览其他岗位。`;
 
       addMessage('assistant', summary);
     } catch (error: any) {
@@ -72,17 +102,12 @@ ${analysis.warnings.map(w => `- ${w}`).join('\n')}
 
   const handleSaveCard = async () => {
     if (!pendingAnalysis) return;
-    
     const { extracted, analysis } = pendingAnalysis;
     
-    // Smart extraction of company and position from page content
     let companyName = '未知公司';
     let positionName = '未知岗位';
-    
-    // Try to extract from page content (Boss 直聘 pattern)
     const content = extracted.content;
     
-    // Boss 直聘 JD page pattern: Look for company name after specific keywords
     const companyPatterns = [
       /公司名[称]?[：:]\s*([^\n]+)/i,
       /([^\n]+)\s*招聘\s*([^\n]+)实习/i,
@@ -102,7 +127,6 @@ ${analysis.warnings.map(w => `- ${w}`).join('\n')}
       }
     }
     
-    // If still not found, try from title (remove common suffixes)
     if (companyName === '未知公司') {
       const cleanTitle = extracted.title
         .replace(/_BOSS直聘$/, '')
@@ -119,35 +143,25 @@ ${analysis.warnings.map(w => `- ${w}`).join('\n')}
       }
     }
     
-    // Extract company location from content (common patterns)
     let companyLocation = '';
     const locationPatterns = [
       /工作地[点]?[：:]\s*([^\n]+)/i,
       /地[点址][\s:：]+([^\n,，]+)/,
-      /([\u4e00-\u9fa5]{2,10}[省市])/.exec(content),
+      /([\u4e00-\u9fa5]{2,10}[省市])/,
     ];
     
     for (const pattern of locationPatterns) {
-      if (pattern) {
-        const match = typeof pattern === 'object' && 'exec' in pattern 
-          ? pattern 
-          : content.match(pattern as RegExp);
-        if (match && match[1]) {
-          companyLocation = match[1].trim();
-          break;
-        }
+      const match = typeof pattern === 'object' && 'exec' in pattern 
+        ? pattern 
+        : content.match(pattern as RegExp);
+      if (match && match[1]) {
+        companyLocation = match[1].trim();
+        break;
       }
     }
     
-    // Clean up company name (remove extra spaces and common noise)
-    companyName = companyName
-      .replace(/\s+/g, ' ')
-      .replace(/招聘$/i, '')
-      .trim();
-    
-    positionName = positionName
-      .replace(/\s+/g, ' ')
-      .trim();
+    companyName = companyName.replace(/\s+/g, ' ').replace(/招聘$/i, '').trim();
+    positionName = positionName.replace(/\s+/g, ' ').trim();
     
     await createCard({
       companyName,
