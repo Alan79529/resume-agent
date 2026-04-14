@@ -1,7 +1,7 @@
 import { configStore } from '../../store';
 import { OpenAICompatibleProvider } from './openai-compatible';
 import type { AIProvider } from './provider';
-import type { ExtractedContent, Analysis } from '../../../renderer/src/types';
+import type { ExtractedContent, Analysis } from '../../shared/types';
 
 export function createProvider(): AIProvider {
   const apiKey = configStore.getApiKey();

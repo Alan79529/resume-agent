@@ -1,5 +1,5 @@
 import { ipcMain, webContents } from 'electron';
-import type { ExtractedContent } from '../../renderer/src/types';
+import type { ExtractedContent } from '../../shared/types';
 
 // @ts-ignore — Vite ?raw import bundles the file content at compile time
 import readabilityScript from '@mozilla/readability/Readability.js?raw';

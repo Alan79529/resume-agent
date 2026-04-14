@@ -1,7 +1,7 @@
 import { ipcMain, type IpcMainEvent } from 'electron';
 import { analyzeJobContent } from '../services/ai';
 import { createProvider } from '../services/ai';
-import type { ExtractedContent, AIChatMessage } from '../../renderer/src/types';
+import type { ExtractedContent, AIChatMessage } from '../../shared/types';
 
 function sendStreamEvent(
   sender: Electron.WebContents,

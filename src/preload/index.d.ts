@@ -1,5 +1,5 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-import type { BattleCard, ExtractedContent, Analysis, AIChatMessage } from '../renderer/src/types'
+import type { BattleCard, ExtractedContent, Analysis, AIChatMessage } from '../shared/types'
 
 // Custom API interface
 interface CustomAPI {

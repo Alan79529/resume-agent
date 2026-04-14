@@ -1,4 +1,5 @@
-import type { AIProvider, AIChatMessage } from './provider';
+import type { AIProvider } from './provider';
+import type { AIChatMessage } from '../../shared/types';
 
 export interface OpenAICompatibleProviderConfig {
   baseURL: string;
