@@ -3,7 +3,7 @@ import { OpenAICompatibleProvider } from './openai-compatible';
 import type { AIProvider } from './provider';
 import type { ExtractedContent, Analysis } from '../../../renderer/src/types';
 
-function createProvider(): AIProvider {
+export function createProvider(): AIProvider {
   const apiKey = configStore.getApiKey();
   const baseURL = configStore.getApiBaseUrl();
   const model = configStore.getModel();
