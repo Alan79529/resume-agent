@@ -1,8 +1,9 @@
 import { ipcMain, type IpcMainEvent } from 'electron';
-import { analyzeJobContent } from '../services/ai';
-import { createProvider } from '../services/ai';
+import { analyzeJobContent, createProvider } from '../services/ai';
+import { abortAgentRun, runAgentWorkflow } from '../services/agent';
+import type { AgentProgressPayload, AgentRunRequest } from '../services/agent/types';
 import { profileStore } from '../store';
-import type { ExtractedContent, AIChatMessage } from '../../shared/types';
+import type { AIChatMessage, ExtractedContent } from '../../shared/types';
 
 function sendStreamEvent(
   sender: Electron.WebContents,
@@ -33,5 +34,45 @@ export function setupAIIPC(): void {
     } catch (error: any) {
       sendStreamEvent(event.sender, 'ai:chatStream:error', requestId, error.message || '未知错误');
     }
+  });
+
+  ipcMain.on('ai:agentRun', (event: IpcMainEvent, payload: AgentRunRequest, requestId: string) => {
+    const sender = event.sender;
+    const cleanupOnDestroy = (): void => {
+      abortAgentRun(requestId);
+    };
+    sender.once('destroyed', cleanupOnDestroy);
+
+    void (async () => {
+      const runRequest: AgentRunRequest = {
+        ...payload,
+        requestId,
+      };
+
+      try {
+        const result = await runAgentWorkflow(runRequest, {
+          onProgress: (progress: AgentProgressPayload) => {
+            sendStreamEvent(event.sender, 'ai:agentRun:progress', requestId, JSON.stringify(progress));
+          },
+        });
+
+        sendStreamEvent(event.sender, 'ai:agentRun:done', requestId, JSON.stringify(result));
+      } catch (error: any) {
+        const code =
+          error?.message === 'AGENT_BUSY'
+            ? 'AGENT_BUSY'
+            : error?.name === 'AbortError'
+              ? 'AGENT_ABORTED'
+              : 'AGENT_FAILED';
+        const message = error?.message || '未知错误';
+        sendStreamEvent(event.sender, 'ai:agentRun:error', requestId, JSON.stringify({ code, message }));
+      } finally {
+        sender.removeListener('destroyed', cleanupOnDestroy);
+      }
+    })();
+  });
+
+  ipcMain.on('ai:agentAbort', (_, requestId: string) => {
+    abortAgentRun(requestId);
   });
 }

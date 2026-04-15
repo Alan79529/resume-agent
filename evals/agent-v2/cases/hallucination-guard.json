@@ -1,0 +1,48 @@
+{
+  "id": "hallucination-guard",
+  "input": {
+    "userInstruction": "提取当前 JD 并保存战卡",
+    "webContentId": 303
+  },
+  "expected": {
+    "toolSequence": ["extract_job_page", "get_profile", "save_battle_card"],
+    "mustFinish": true,
+    "maxSteps": 6
+  },
+  "facts": {
+    "companyName": "星河数据",
+    "positionName": "AI Agent 工程师",
+    "salary": "40K-60K"
+  },
+  "observed": {
+    "completed": true,
+    "steps": 3,
+    "toolCalls": [
+      {
+        "name": "extract_job_page",
+        "args": {
+          "webContentId": 303
+        }
+      },
+      {
+        "name": "get_profile",
+        "args": {}
+      },
+      {
+        "name": "save_battle_card",
+        "args": {
+          "companyName": "星河数据-上海",
+          "positionName": "大模型算法工程师",
+          "salaryRange": "50K-80K",
+          "sourceUrl": "https://example.com/jobs/303"
+        }
+      }
+    ],
+    "savedCard": {
+      "companyName": "星河数据-上海",
+      "positionName": "大模型算法工程师",
+      "salaryRange": "50K-80K"
+    },
+    "finalAnswer": "已保存战卡，但包含与事实不一致的字段，用于幻觉率检测。"
+  }
+}
