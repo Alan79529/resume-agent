@@ -1,0 +1,54 @@
+{
+  "id": "tool-recovery",
+  "input": {
+    "userInstruction": "提取当前 JD 并保存战卡",
+    "webContentId": 202
+  },
+  "expected": {
+    "toolSequence": ["extract_job_page", "get_profile", "save_battle_card"],
+    "mustFinish": true,
+    "maxSteps": 6
+  },
+  "facts": {
+    "companyName": "北极星智能",
+    "positionName": "Agent 平台工程师",
+    "salary": "35K-55K"
+  },
+  "observed": {
+    "completed": true,
+    "steps": 5,
+    "toolCalls": [
+      {
+        "name": "extract_job_page",
+        "args": {
+          "webContentId": 999
+        }
+      },
+      {
+        "name": "extract_job_page",
+        "args": {
+          "webContentId": 202
+        }
+      },
+      {
+        "name": "get_profile",
+        "args": {}
+      },
+      {
+        "name": "save_battle_card",
+        "args": {
+          "companyName": "北极星智能",
+          "positionName": "Agent 平台工程师",
+          "salaryRange": "35K-55K",
+          "sourceUrl": "https://example.com/jobs/202"
+        }
+      }
+    ],
+    "savedCard": {
+      "companyName": "北极星智能",
+      "positionName": "Agent 平台工程师",
+      "salaryRange": "35K-55K"
+    },
+    "finalAnswer": "已恢复后续工具调用并完成战卡保存。"
+  }
+}

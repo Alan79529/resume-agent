@@ -1,5 +1,4 @@
-import type { AIProvider } from './provider';
-import type { AIChatMessage } from '../../shared/types';
+import type { AIChatMessage, AIProvider, AIToolCall, AIToolDefinition, AIChatWithToolsResult } from './provider';
 
 export interface OpenAICompatibleProviderConfig {
   baseURL: string;
@@ -10,7 +9,11 @@ export interface OpenAICompatibleProviderConfig {
 export class OpenAICompatibleProvider implements AIProvider {
   constructor(private config: OpenAICompatibleProviderConfig) {}
 
-  private buildRequestBody(messages: AIChatMessage[], options?: { temperature?: number; maxTokens?: number }, stream = false) {
+  private buildRequestBody(
+    messages: AIChatMessage[],
+    options?: { temperature?: number; maxTokens?: number; tools?: AIToolDefinition[]; toolChoice?: 'auto' | 'none' },
+    stream = false
+  ) {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
@@ -22,9 +25,38 @@ export class OpenAICompatibleProvider implements AIProvider {
       messages,
       temperature: options?.temperature ?? 0.7,
       max_tokens: options?.maxTokens ?? 2000,
+      ...(Array.isArray(options?.tools) && options.tools.length ? { tools: options.tools, tool_choice: options.toolChoice ?? 'auto' } : {}),
       ...(stream ? { stream: true } : {}),
     });
     return { headers, body };
+  }
+
+  private parseToolCalls(toolCalls: unknown): AIToolCall[] {
+    if (!Array.isArray(toolCalls)) {
+      return [];
+    }
+
+    return toolCalls
+      .map((toolCall, index): AIToolCall | null => {
+        if (!toolCall || typeof toolCall !== 'object') return null;
+        const record = toolCall as {
+          id?: unknown;
+          type?: unknown;
+          function?: { name?: unknown; arguments?: unknown };
+        };
+        const name = record.function?.name;
+        if (typeof name !== 'string' || !name.trim()) return null;
+        const args = record.function?.arguments;
+        return {
+          id: typeof record.id === 'string' && record.id.trim() ? record.id : `tool_call_${index + 1}`,
+          type: 'function',
+          function: {
+            name,
+            arguments: typeof args === 'string' ? args : JSON.stringify(args ?? {}),
+          },
+        };
+      })
+      .filter((item): item is AIToolCall => item !== null);
   }
 
   private *parseSSELines(lines: string[]): Generator<string> {
@@ -45,9 +77,12 @@ export class OpenAICompatibleProvider implements AIProvider {
     }
   }
 
-  async chat(messages: AIChatMessage[], options?: { temperature?: number; maxTokens?: number }): Promise<string> {
+  async chat(
+    messages: AIChatMessage[],
+    options?: { temperature?: number; maxTokens?: number; signal?: AbortSignal }
+  ): Promise<string> {
     const { headers, body } = this.buildRequestBody(messages, options);
-    const response = await fetch(this.config.baseURL, { method: 'POST', headers, body });
+    const response = await fetch(this.config.baseURL, { method: 'POST', headers, body, signal: options?.signal });
 
     if (!response.ok) {
       const error = await response.text();
@@ -62,9 +97,12 @@ export class OpenAICompatibleProvider implements AIProvider {
     return content;
   }
 
-  async *chatStream(messages: AIChatMessage[], options?: { temperature?: number; maxTokens?: number }): AsyncGenerator<string, void> {
+  async *chatStream(
+    messages: AIChatMessage[],
+    options?: { temperature?: number; maxTokens?: number; signal?: AbortSignal }
+  ): AsyncGenerator<string, void> {
     const { headers, body } = this.buildRequestBody(messages, options, true);
-    const response = await fetch(this.config.baseURL, { method: 'POST', headers, body });
+    const response = await fetch(this.config.baseURL, { method: 'POST', headers, body, signal: options?.signal });
 
     if (!response.ok) {
       const error = await response.text();
@@ -103,5 +141,29 @@ export class OpenAICompatibleProvider implements AIProvider {
       await reader.cancel().catch(() => {});
       reader.releaseLock();
     }
+  }
+
+  async chatWithTools(
+    messages: AIChatMessage[],
+    tools: AIToolDefinition[],
+    options?: { temperature?: number; maxTokens?: number; toolChoice?: 'auto' | 'none'; signal?: AbortSignal }
+  ): Promise<AIChatWithToolsResult> {
+    const { headers, body } = this.buildRequestBody(messages, { ...options, tools }, false);
+    const response = await fetch(this.config.baseURL, { method: 'POST', headers, body, signal: options?.signal });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`AI API 錯誤: ${error}`);
+    }
+
+    const data = await response.json();
+    const choice = data.choices?.[0] ?? {};
+    const message = choice.message ?? {};
+
+    return {
+      content: typeof message.content === 'string' ? message.content : '',
+      toolCalls: this.parseToolCalls(message.tool_calls),
+      finishReason: typeof choice.finish_reason === 'string' ? choice.finish_reason : null,
+    };
   }
 }

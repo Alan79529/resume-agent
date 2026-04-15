@@ -1,0 +1,48 @@
+{
+  "id": "happy-path",
+  "input": {
+    "userInstruction": "提取当前 JD 并保存战卡",
+    "webContentId": 101
+  },
+  "expected": {
+    "toolSequence": ["extract_job_page", "get_profile", "save_battle_card"],
+    "mustFinish": true,
+    "maxSteps": 6
+  },
+  "facts": {
+    "companyName": "示例科技",
+    "positionName": "AI Agent 工程师",
+    "salary": "30K-45K"
+  },
+  "observed": {
+    "completed": true,
+    "steps": 3,
+    "toolCalls": [
+      {
+        "name": "extract_job_page",
+        "args": {
+          "webContentId": 101
+        }
+      },
+      {
+        "name": "get_profile",
+        "args": {}
+      },
+      {
+        "name": "save_battle_card",
+        "args": {
+          "companyName": "示例科技",
+          "positionName": "AI Agent 工程师",
+          "salaryRange": "30K-45K",
+          "sourceUrl": "https://example.com/jobs/101"
+        }
+      }
+    ],
+    "savedCard": {
+      "companyName": "示例科技",
+      "positionName": "AI Agent 工程师",
+      "salaryRange": "30K-45K"
+    },
+    "finalAnswer": "已提取岗位信息并保存为战卡。"
+  }
+}

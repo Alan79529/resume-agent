@@ -1,10 +1,16 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Send, Sparkles, Save, X } from 'lucide-react';
 import { useChatStore } from '../../stores/chat';
 import { useCardsStore } from '../../stores/cards';
 import { useWebviewStore } from '../../stores/webview';
 import { MessageList } from './MessageList';
-import { api } from '../../utils/ipc';
+import {
+  api,
+  type AgentRunDonePayload,
+  type AgentRunErrorPayload,
+  type AgentRunProgressPayload,
+  type AgentRunRequest
+} from '../../utils/ipc';
 import type { Analysis, ExtractedContent, AIChatMessage, BattleCard, ProfileData } from '../../types';
 
 const DEFAULT_PROFILE: ProfileData = {
@@ -153,6 +159,29 @@ function parseFromTitle(title: string): { companyName: string; positionName: str
   return { companyName, positionName };
 }
 
+function formatAgentProgress(payload: AgentRunProgressPayload): string {
+  const phase = payload.phase ?? payload.stage;
+  const phaseText = phase ? `[${phase}] ` : '';
+  return `${phaseText}${payload.message ?? 'running'}`;
+}
+
+function formatAgentDone(payload: AgentRunDonePayload): string {
+  if (typeof payload.finalAnswer === 'string' && payload.finalAnswer.trim()) {
+    return payload.finalAnswer;
+  }
+
+  const cardId = payload.cardId ?? payload.artifacts?.cardId;
+  if (cardId) {
+    return `Agent completed. Saved card: ${cardId}`;
+  }
+
+  return 'Agent completed.';
+}
+
+function formatAgentError(payload: AgentRunErrorPayload): string {
+  return payload.message || payload.code || payload.raw || 'Agent failed';
+}
+
 export const ChatPanel: React.FC = () => {
   const [input, setInput] = useState('');
   const [profile, setProfile] = useState<ProfileData>(DEFAULT_PROFILE);
@@ -160,9 +189,12 @@ export const ChatPanel: React.FC = () => {
     extracted: ExtractedContent;
     analysis: Analysis;
   } | null>(null);
+  const [agentProgress, setAgentProgress] = useState<string[]>([]);
+  const [agentStatus, setAgentStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
 
   const requestIdRef = useRef<string | null>(null);
   const requestModeRef = useRef<'chat' | 'mock' | null>(null);
+  const agentRequestIdRef = useRef<string | null>(null);
 
   const {
     addMessage,
@@ -183,6 +215,8 @@ export const ChatPanel: React.FC = () => {
     const targetId = mockCardId ?? selectedCardId;
     return cards.find((card) => card.id === targetId) ?? null;
   }, [mode, mockCardId, selectedCardId, cards]);
+
+  const hasActiveRun = Boolean(requestIdRef.current || agentRequestIdRef.current);
 
   useEffect(() => {
     let ignore = false;
@@ -244,6 +278,45 @@ export const ChatPanel: React.FC = () => {
   }, [incrementMockQuestionIndex, setLoading, updateLastAssistantMessage]);
 
   useEffect(() => {
+    const unsubscribeProgress = api.onAgentRunProgress((requestId, payload) => {
+      if (agentRequestIdRef.current !== requestId) return;
+      setAgentStatus('running');
+      const line = formatAgentProgress(payload);
+      setAgentProgress((prev) => [...prev.slice(-7), line]);
+      updateLastAssistantMessage(`\n${line}`);
+    });
+
+    const unsubscribeDone = api.onAgentRunDone((requestId, payload) => {
+      if (agentRequestIdRef.current !== requestId) return;
+      const summary = formatAgentDone(payload);
+      setAgentStatus('done');
+      setAgentProgress((prev) => [...prev, summary]);
+      updateLastAssistantMessage(`\n\n${summary}`);
+      setLoading(false);
+      agentRequestIdRef.current = null;
+    });
+
+    const unsubscribeError = api.onAgentRunError((requestId, payload) => {
+      if (agentRequestIdRef.current !== requestId) return;
+      const message = formatAgentError(payload);
+      setAgentStatus('error');
+      setAgentProgress((prev) => [...prev, `error: ${message}`]);
+      updateLastAssistantMessage(`\n\nError: ${message}`);
+      setLoading(false);
+      agentRequestIdRef.current = null;
+    });
+
+    return () => {
+      if (agentRequestIdRef.current) {
+        api.agentAbort(agentRequestIdRef.current);
+      }
+      unsubscribeProgress();
+      unsubscribeDone();
+      unsubscribeError();
+    };
+  }, [setLoading, updateLastAssistantMessage]);
+
+  useEffect(() => {
     if (mode !== 'mock' || !activeMockCard || mockMessages.length > 0 || requestIdRef.current) {
       return;
     }
@@ -264,7 +337,7 @@ export const ChatPanel: React.FC = () => {
 
   const handleSend = () => {
     const userInput = input.trim();
-    if (!userInput || requestIdRef.current) return;
+    if (!userInput || requestIdRef.current || agentRequestIdRef.current) return;
 
     setInput('');
 
@@ -304,7 +377,40 @@ export const ChatPanel: React.FC = () => {
     );
   };
 
+  const handleAgentRun = () => {
+    if (requestIdRef.current || agentRequestIdRef.current) return;
+
+    const activeTab = webviewStore.tabs.find((tab) => tab.isActive);
+    if (!activeTab) {
+      addMessage('assistant', 'Please open a job page before running agent mode.');
+      return;
+    }
+
+    const webview = document.querySelector(`webview[data-tab-id="${activeTab.id}"]`) as Electron.WebviewTag | null;
+    if (!webview) {
+      addMessage('assistant', 'Unable to find active webview for agent mode.');
+      return;
+    }
+
+    const requestId = Math.random().toString(36).substring(2, 9);
+    agentRequestIdRef.current = requestId;
+    setAgentProgress([]);
+    setAgentStatus('running');
+    setLoading(true);
+
+    addMessage('assistant', 'Agent started: extracting page -> reading profile -> saving card.');
+
+    const request: AgentRunRequest = {
+      userInstruction: input.trim() || 'Extract this JD and save a battle card.',
+      webContentId: webview.getWebContentsId(),
+      entryPoint: 'chat-panel'
+    };
+
+    api.agentRun(request, requestId);
+  };
+
   const handleExtract = async () => {
+    if (agentRequestIdRef.current) return;
     const activeTab = webviewStore.tabs.find((tab) => tab.isActive);
     if (!activeTab) {
       addMessage('assistant', '请先在右侧浏览器中打开岗位页面。');
@@ -464,6 +570,10 @@ export const ChatPanel: React.FC = () => {
   };
 
   const handleExitMock = () => {
+    if (agentRequestIdRef.current) {
+      api.agentAbort(agentRequestIdRef.current);
+      agentRequestIdRef.current = null;
+    }
     requestIdRef.current = null;
     requestModeRef.current = null;
     setLoading(false);
@@ -504,14 +614,24 @@ export const ChatPanel: React.FC = () => {
             ) : null}
 
             {mode !== 'mock' ? (
-              <button
-                onClick={handleExtract}
-                disabled={Boolean(pendingAnalysis)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-primary text-white text-sm rounded-lg hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Sparkles size={16} />
-                提取并分析
-              </button>
+              <>
+                <button
+                  onClick={handleAgentRun}
+                  disabled={Boolean(pendingAnalysis) || hasActiveRun}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-amber-600 text-white text-sm rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Sparkles size={16} />
+                  Agent 闭环执行
+                </button>
+                <button
+                  onClick={handleExtract}
+                  disabled={Boolean(pendingAnalysis) || hasActiveRun}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-primary text-white text-sm rounded-lg hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Sparkles size={16} />
+                  提取并分析
+                </button>
+              </>
             ) : null}
           </div>
         </div>
@@ -531,6 +651,19 @@ export const ChatPanel: React.FC = () => {
         </div>
       ) : null}
 
+      {agentStatus !== 'idle' || agentProgress.length > 0 ? (
+        <div className="mx-4 mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+          <p className="text-xs font-semibold text-amber-800">Agent Status: {agentStatus.toUpperCase()}</p>
+          <div className="mt-1 space-y-1">
+            {agentProgress.slice(-4).map((line, index) => (
+              <p key={`${index}-${line}`} className="text-xs text-amber-900 break-words">
+                {line}
+              </p>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       <MessageList />
 
       <div className="p-4 border-t border-gray-200">
@@ -539,6 +672,7 @@ export const ChatPanel: React.FC = () => {
             type="text"
             value={input}
             onChange={(event) => setInput(event.target.value)}
+            disabled={hasActiveRun}
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
                 event.preventDefault();
@@ -546,11 +680,12 @@ export const ChatPanel: React.FC = () => {
               }
             }}
             placeholder={mode === 'mock' ? '输入你的面试回答...' : '输入消息...'}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:bg-gray-100"
           />
           <button
             onClick={handleSend}
-            className="p-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors"
+            disabled={hasActiveRun}
+            className="p-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Send size={18} />
           </button>

@@ -123,9 +123,25 @@ export interface ExtractedContent {
   pageType: PageType;
   timestamp: number;
   source: 'readability' | 'fallback';
+  companyName?: string;
+  positionName?: string;
+  salaryRange?: string;
+  requirementsSummary?: string;
+}
+
+export interface AIChatToolCall {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
+  };
 }
 
 export interface AIChatMessage {
-  role: 'system' | 'user' | 'assistant';
+  role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
+  name?: string;
+  tool_call_id?: string;
+  tool_calls?: AIChatToolCall[];
 }

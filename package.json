@@ -1,6 +1,6 @@
 {
   "name": "resume-agent",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Resume management and interview tracking application",
   "main": "./out/main/index.js",
   "author": "",
@@ -9,6 +9,9 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "eval:agent": "tsx evals/agent-v2/runner.ts",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
@@ -44,7 +47,9 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwindcss": "^3.4.17",
+    "tsx": "^4.20.6",
     "typescript": "^5.8.3",
-    "vite": "^6.2.5"
+    "vite": "^6.2.5",
+    "vitest": "^2.1.1"
   }
 }
