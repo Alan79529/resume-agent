@@ -18,7 +18,7 @@ const twoLineClampStyle: React.CSSProperties = {
 
 const statusConfig: Record<CardStatus, { label: string; color: string; bg: string }> = {
   pending_analysis: { label: '待分析', color: 'text-gray-600', bg: 'bg-gray-100' },
-  preparing: { label: '待准备', color: 'text-blue-600', bg: 'bg-blue-50' },
+  preparing: { label: '准备中', color: 'text-blue-600', bg: 'bg-blue-50' },
   scheduled: { label: '已安排', color: 'text-amber-600', bg: 'bg-amber-50' },
   interviewed: { label: '已面试', color: 'text-green-600', bg: 'bg-green-50' },
   reviewed: { label: '已复盘', color: 'text-emerald-600', bg: 'bg-emerald-50' }
@@ -28,13 +28,13 @@ function sanitizeCardLabel(value: string, fallback = ''): string {
   const stripPrivateUse = (text: string) =>
     Array.from(text)
       .filter((char) => {
-        const code = char.codePointAt(0) ?? 0
-        const inBmpPrivate = code >= 0xe000 && code <= 0xf8ff
-        const inSupPrivateA = code >= 0xf0000 && code <= 0xffffd
-        const inSupPrivateB = code >= 0x100000 && code <= 0x10fffd
-        return !inBmpPrivate && !inSupPrivateA && !inSupPrivateB
+        const code = char.codePointAt(0) ?? 0;
+        const inBmpPrivate = code >= 0xe000 && code <= 0xf8ff;
+        const inSupPrivateA = code >= 0xf0000 && code <= 0xffffd;
+        const inSupPrivateB = code >= 0x100000 && code <= 0x10fffd;
+        return !inBmpPrivate && !inSupPrivateA && !inSupPrivateB;
       })
-      .join('')
+      .join('');
 
   const clean = stripPrivateUse(String(value || ''))
     .replace(/\uFFFD/g, '')
@@ -42,16 +42,17 @@ function sanitizeCardLabel(value: string, fallback = ''): string {
     .replace(/\ufeff/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+
   return clean || fallback;
 }
 
 export const CardItem: React.FC<CardItemProps> = ({ card, isSelected, onClick }) => {
   const { deleteCard, selectCard } = useCardsStore();
-  const status = statusConfig[card.status];
+  const status = statusConfig[card.status] ?? statusConfig.pending_analysis;
   const companyName = sanitizeCardLabel(card.companyName, '未知公司');
   const companyLocation = sanitizeCardLabel(card.companyLocation);
   const positionName = sanitizeCardLabel(card.positionName, '未知岗位');
-  
+
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return null;
     const date = new Date(dateStr);
@@ -70,49 +71,52 @@ export const CardItem: React.FC<CardItemProps> = ({ card, isSelected, onClick })
     <div
       onClick={onClick}
       className={`
-        p-3 rounded-lg cursor-pointer transition-all border group
-        ${isSelected 
-          ? 'bg-blue-50 border-blue-300 shadow-sm' 
+        p-3 rounded-lg cursor-pointer transition-all border group min-w-0 overflow-hidden
+        ${isSelected
+          ? 'bg-blue-50 border-blue-300 shadow-sm'
           : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm'
         }
       `}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex-1 min-w-0">
+      <div className="flex items-start justify-between gap-2 min-w-0">
+        <div className="flex-1 min-w-0 overflow-hidden">
           <h3
-            className="font-medium text-gray-900 leading-5 break-all"
+            className="font-medium text-gray-900 leading-5 break-words"
             title={companyName}
             style={twoLineClampStyle}
           >
             {companyName}
           </h3>
+
           {companyLocation && (
-            <p className="text-xs text-gray-400 truncate mt-0.5">{companyLocation}</p>
+            <p className="text-xs text-gray-400 mt-0.5 break-all">{companyLocation}</p>
           )}
+
           <p
-            className="text-sm text-gray-500 mt-0.5 leading-5 break-all"
+            className="text-sm text-gray-500 mt-0.5 leading-5 break-words"
             title={positionName}
             style={twoLineClampStyle}
           >
             {positionName}
           </p>
         </div>
-        <button 
-          className="p-1 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+
+        <button
+          className="p-1 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
           onClick={handleDelete}
           title="删除"
         >
           <Trash2 size={16} />
         </button>
       </div>
-      
-      <div className="flex items-center justify-between mt-2">
+
+      <div className="flex flex-wrap items-center justify-between gap-2 mt-2 min-w-0">
         <span className={`text-xs px-2 py-0.5 rounded-full ${status.bg} ${status.color}`}>
           {status.label}
         </span>
-        
+
         {card.schedule.interviewTime && (
-          <div className="flex items-center gap-1 text-xs text-gray-500">
+          <div className="flex items-center gap-1 text-xs text-gray-500 shrink-0">
             <Calendar size={12} />
             <span>{formatDate(card.schedule.interviewTime)}</span>
           </div>

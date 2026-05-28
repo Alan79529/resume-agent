@@ -2,8 +2,8 @@ import { ipcMain, dialog, BrowserWindow } from 'electron';
 import { promises as fs } from 'node:fs';
 import { basename } from 'node:path';
 import { PDFParse } from 'pdf-parse';
-import { configStore, profileStore, cardStore, resourceStore } from '../store';
-import type { AppDataBackup, BattleCard, ResourceFile, DataTransferResult, ResumePdfImportResult } from '../../shared/types';
+import { configStore, profileStore, cardStore, resourceStore, preferencesStore } from '../store';
+import type { AppDataBackup, BattleCard, ResourceFile, DataTransferResult, ResumePdfImportResult, JobPreferences } from '../../shared/types';
 
 function getOwnerWindow(): BrowserWindow | undefined {
   return BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
@@ -15,6 +15,7 @@ function createBackupPayload(): AppDataBackup {
     exportedAt: new Date().toISOString(),
     battleCards: cardStore.getAll(),
     profile: profileStore.get(),
+    preferences: preferencesStore.get(),
     resources: resourceStore.getAll()
   };
 }
@@ -96,6 +97,10 @@ export function setupConfigIPC(): void {
   ipcMain.handle('config:getProfile', () => profileStore.get());
   ipcMain.handle('config:setProfile', (_, profile: { resumeText?: string; selfIntroText?: string }) => {
     return profileStore.set(profile);
+  });
+  ipcMain.handle('config:getPreferences', () => preferencesStore.get());
+  ipcMain.handle('config:setPreferences', (_, prefs: Partial<JobPreferences>) => {
+    return preferencesStore.set(prefs);
   });
   ipcMain.handle('config:importResumePdf', async (): Promise<ResumePdfImportResult> => {
     const ownerWindow = getOwnerWindow();
@@ -185,6 +190,9 @@ export function setupConfigIPC(): void {
       cardStore.replaceAll(backup.battleCards);
       resourceStore.replaceAll(backup.resources);
       profileStore.set(backup.profile);
+      if (backup.preferences) {
+        preferencesStore.set(backup.preferences);
+      }
 
       return {
         success: true,

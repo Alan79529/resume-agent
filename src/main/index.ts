@@ -6,6 +6,7 @@ import { setupWebviewIPC } from './ipc/webview'
 import { setupAIIPC } from './ipc/ai'
 import { setupConfigIPC } from './ipc/config'
 import { setupAutoUpdater } from './services/updater'
+import { startPythonSidecar, stopPythonSidecar } from './services/python-bridge'
 // import icon from '../../resources/icon.png?asset'
 
 function createWindow(): BrowserWindow {
@@ -66,6 +67,11 @@ app.whenReady().then(() => {
   setupAIIPC()
   setupConfigIPC()
 
+  // Start Python sidecar for Agent tools (non-blocking)
+  startPythonSidecar().catch((err) => {
+    console.error('[main] Failed to start Python sidecar:', err)
+  })
+
   const mainWindow = createWindow()
   setupAutoUpdater(mainWindow)
 
@@ -83,6 +89,11 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
   }
+})
+
+// Clean up Python sidecar on quit
+app.on('before-quit', () => {
+  stopPythonSidecar()
 })
 
 // In this file you can include the rest of your app's specific main process

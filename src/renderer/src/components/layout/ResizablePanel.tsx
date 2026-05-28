@@ -58,8 +58,12 @@ export const ResizablePanel: React.FC<ResizablePanelProps> = ({
 
   return (
     <div
-      className={`relative flex ${isHorizontal ? 'flex-row' : 'flex-col'} ${className}`}
-      style={{ [isHorizontal ? 'width' : 'height']: size }}
+      className={`relative flex min-w-0 min-h-0 ${isHorizontal ? 'flex-row' : 'flex-col'} ${className}`}
+      style={{
+        [isHorizontal ? 'width' : 'height']: size,
+        [isHorizontal ? 'minWidth' : 'minHeight']: minSize,
+        [isHorizontal ? 'maxWidth' : 'maxHeight']: maxSize
+      }}
     >
       {children}
       
@@ -68,7 +72,7 @@ export const ResizablePanel: React.FC<ResizablePanelProps> = ({
         className={`
           absolute bg-transparent hover:bg-primary/20 transition-colors z-50
           ${isHorizontal 
-            ? 'right-0 top-0 bottom-0 w-1 cursor-col-resize' 
+            ? 'right-0 top-0 bottom-0 w-1.5 cursor-col-resize'
             : 'bottom-0 left-0 right-0 h-1 cursor-row-resize'
           }
           ${isResizing ? 'bg-primary/40' : ''}

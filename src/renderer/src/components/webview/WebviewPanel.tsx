@@ -28,10 +28,10 @@ export const WebviewPanel: React.FC = () => {
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full min-w-0 flex flex-col overflow-hidden">
       <TabBar />
       
-      <div className="flex-1 relative">
+      <div className="relative min-w-0 flex-1 overflow-hidden">
         {tabs.map(tab => (
           <div
             key={tab.id}

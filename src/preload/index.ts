@@ -8,13 +8,13 @@ const api = {
   createCard: (card: any) => ipcRenderer.invoke('cards:create', card),
   updateCard: (id: string, updates: any) => ipcRenderer.invoke('cards:update', id, updates),
   deleteCard: (id: string) => ipcRenderer.invoke('cards:delete', id),
-  
+
   // Webview
   extractWebview: (webContentId: number) => ipcRenderer.invoke('webview:extract', webContentId),
-  
+
   // AI Analysis
   analyzeContent: (extracted: any) => ipcRenderer.invoke('ai:analyze', extracted),
-  
+
   // AI Chat Stream
   chatStream: (messages: any[], requestId: string) => ipcRenderer.send('ai:chatStream', messages, requestId),
   onChatStreamChunk: (callback: (requestId: string, chunk: string) => void) => {
@@ -33,6 +33,28 @@ const api = {
     return () => ipcRenderer.removeListener('ai:chatStream:error', handler);
   },
 
+  // Agent
+  agentRun: (
+    userMessage: string,
+    context?: { webContentId?: number; recentMessages?: Array<{ role: 'user' | 'assistant'; content: string }> }
+  ) =>
+    ipcRenderer.invoke('ai:agentRun', userMessage, context),
+  onAgentProgress: (callback: (event: any) => void) => {
+    const handler = (_: any, event: any) => callback(event);
+    ipcRenderer.on('ai:agentRun:progress', handler);
+    return () => ipcRenderer.removeListener('ai:agentRun:progress', handler);
+  },
+  onAgentDone: (callback: (result: any) => void) => {
+    const handler = (_: any, result: any) => callback(result);
+    ipcRenderer.on('ai:agentRun:done', handler);
+    return () => ipcRenderer.removeListener('ai:agentRun:done', handler);
+  },
+  onAgentError: (callback: (error: string) => void) => {
+    const handler = (_: any, error: string) => callback(error);
+    ipcRenderer.on('ai:agentRun:error', handler);
+    return () => ipcRenderer.removeListener('ai:agentRun:error', handler);
+  },
+
   // Config
   getApiKey: () => ipcRenderer.invoke('config:getApiKey'),
   setApiKey: (key: string) => ipcRenderer.invoke('config:setApiKey', key),
@@ -43,6 +65,8 @@ const api = {
   getProfile: () => ipcRenderer.invoke('config:getProfile'),
   setProfile: (profile: { resumeText?: string; selfIntroText?: string }) =>
     ipcRenderer.invoke('config:setProfile', profile),
+  getPreferences: () => ipcRenderer.invoke('config:getPreferences'),
+  setPreferences: (prefs: any) => ipcRenderer.invoke('config:setPreferences', prefs),
   importResumePdf: () => ipcRenderer.invoke('config:importResumePdf'),
   exportData: () => ipcRenderer.invoke('config:exportData'),
   importData: () => ipcRenderer.invoke('config:importData')

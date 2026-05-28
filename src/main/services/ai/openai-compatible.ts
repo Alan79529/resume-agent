@@ -1,5 +1,6 @@
 import type { AIProvider } from './provider';
 import type { AIChatMessage } from '../../shared/types';
+import type { ToolDefinition, ToolCall } from '../agent/types';
 
 export interface OpenAICompatibleProviderConfig {
   baseURL: string;
@@ -10,20 +11,48 @@ export interface OpenAICompatibleProviderConfig {
 export class OpenAICompatibleProvider implements AIProvider {
   constructor(private config: OpenAICompatibleProviderConfig) {}
 
-  private buildRequestBody(messages: AIChatMessage[], options?: { temperature?: number; maxTokens?: number }, stream = false) {
+  private buildRequestBody(
+    messages: AIChatMessage[],
+    options?: { temperature?: number; maxTokens?: number },
+    stream = false,
+    tools?: ToolDefinition[]
+  ) {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
     if (this.config.apiKey.trim()) {
       headers['Authorization'] = `Bearer ${this.config.apiKey}`;
     }
-    const body = JSON.stringify({
+    const bodyObj: Record<string, unknown> = {
       model: this.config.model,
       messages,
       temperature: options?.temperature ?? 0.7,
       max_tokens: options?.maxTokens ?? 2000,
-      ...(stream ? { stream: true } : {}),
-    });
+    };
+    if (stream) bodyObj.stream = true;
+    if (tools && tools.length > 0) {
+      bodyObj.tools = tools.map((def) => ({
+        type: 'function',
+        function: {
+          name: def.name,
+          description: def.description,
+          parameters: {
+            type: 'object',
+            properties: Object.fromEntries(
+              Object.entries(def.parameters).map(([key, param]) => [
+                key,
+                { type: param.type, description: param.description },
+              ])
+            ),
+            required: Object.entries(def.parameters)
+              .filter(([_, param]) => param.required)
+              .map(([key]) => key),
+          },
+        },
+      }));
+      bodyObj.tool_choice = 'auto';
+    }
+    const body = JSON.stringify(bodyObj);
     return { headers, body };
   }
 
@@ -103,5 +132,51 @@ export class OpenAICompatibleProvider implements AIProvider {
       await reader.cancel().catch(() => {});
       reader.releaseLock();
     }
+  }
+
+  async chatWithTools(
+    messages: AIChatMessage[],
+    tools: ToolDefinition[],
+    options?: { temperature?: number; maxTokens?: number }
+  ): Promise<{ content: string | null; reasoningContent?: string; toolCalls: ToolCall[] }> {
+    const { headers, body } = this.buildRequestBody(messages, options, false, tools);
+    const response = await fetch(this.config.baseURL, { method: 'POST', headers, body });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`AI API 错误: ${error}`);
+    }
+
+    const data = await response.json();
+    const message = data.choices?.[0]?.message;
+
+    if (!message) {
+      throw new Error('Invalid response format from AI API');
+    }
+
+    const content: string | null = typeof message.content === 'string' ? message.content : null;
+    const reasoningContent: string | undefined =
+      typeof message.reasoning_content === 'string' ? message.reasoning_content : undefined;
+
+    // 解析 tool_calls
+    const toolCalls: ToolCall[] = [];
+    if (Array.isArray(message.tool_calls)) {
+      for (const tc of message.tool_calls) {
+        try {
+          const args = typeof tc.function?.arguments === 'string'
+            ? JSON.parse(tc.function.arguments)
+            : tc.function?.arguments || {};
+          toolCalls.push({
+            id: tc.id || `call_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            name: tc.function?.name || '',
+            arguments: args,
+          });
+        } catch (err) {
+          console.warn('[OpenAICompatibleProvider] Failed to parse tool call arguments:', err);
+        }
+      }
+    }
+
+    return { content, reasoningContent, toolCalls };
   }
 }

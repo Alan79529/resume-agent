@@ -27,6 +27,16 @@ export interface ProfileData {
   selfIntroText: string;
 }
 
+export interface JobPreferences {
+  cities: string[];        // 期望城市，如 ['北京', '上海']
+  salaryMin: string;       // 最低薪资，如 '15k'
+  salaryMax: string;       // 最高薪资，如 '25k'
+  industries: string[];    // 期望行业，如 ['互联网', 'AI']
+  jobTypes: string[];      // 岗位类型，如 ['后端开发', 'Python开发']
+  excludeCompanies: string[]; // 排除公司
+  notes: string;           // 其他备注
+}
+
 export interface Schedule {
   interviewTime: string | null;
   reminderMinutes: number;
@@ -76,6 +86,7 @@ export interface StoreSchema {
     defaultReminderMinutes: number;
   };
   profile: ProfileData;
+  preferences: JobPreferences;
   resources: ResourceFile[];
 }
 
@@ -84,6 +95,7 @@ export interface AppDataBackup {
   exportedAt: string;
   battleCards: BattleCard[];
   profile: ProfileData;
+  preferences?: JobPreferences;
   resources: ResourceFile[];
 }
 
@@ -126,6 +138,17 @@ export interface ExtractedContent {
 }
 
 export interface AIChatMessage {
-  role: 'system' | 'user' | 'assistant';
+  role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
+  reasoning_content?: string;
+  tool_call_id?: string;
+  name?: string;
+  tool_calls?: Array<{
+    id: string;
+    type: 'function';
+    function: {
+      name: string;
+      arguments: string;
+    };
+  }>;
 }

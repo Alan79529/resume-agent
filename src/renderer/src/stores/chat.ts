@@ -1,7 +1,20 @@
 import { create } from 'zustand';
 import type { ChatMessage } from '../types';
 
-type ChatMode = 'chat' | 'mock';
+type ChatMode = 'chat' | 'mock' | 'agent';
+
+export interface AgentStepUI {
+  stepNumber: number;
+  status: 'running' | 'done' | 'error';
+  toolCalls: Array<{
+    name: string;
+    args: string;
+    result?: string;
+    resultData?: unknown;
+    success?: boolean;
+  }>;
+  thinking?: string;
+}
 
 interface ChatState {
   messages: ChatMessage[];
@@ -10,6 +23,7 @@ interface ChatState {
   mockCardId: string | null;
   mockQuestionIndex: number;
   mockMessages: ChatMessage[];
+  agentSteps: AgentStepUI[];
 
   addMessage: (role: ChatMessage['role'], content: string) => void;
   updateLastAssistantMessage: (delta: string) => void;
@@ -19,6 +33,10 @@ interface ChatState {
   exitMockMode: () => void;
   resetMockState: () => void;
   incrementMockQuestionIndex: () => void;
+  setAgentMode: (enabled: boolean) => void;
+  setAgentSteps: (steps: AgentStepUI[]) => void;
+  addAgentStep: (step: AgentStepUI) => void;
+  updateLastAgentStep: (update: Partial<AgentStepUI>) => void;
 }
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -63,6 +81,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   mockCardId: null,
   mockQuestionIndex: 0,
   mockMessages: [],
+  agentSteps: [],
 
   addMessage: (role, content) => {
     const message: ChatMessage = {
@@ -143,5 +162,34 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   incrementMockQuestionIndex: () => {
     set((state) => ({ mockQuestionIndex: state.mockQuestionIndex + 1 }));
-  }
+  },
+
+  setAgentMode: (enabled) => {
+    if (enabled) {
+      set({ mode: 'agent', agentSteps: [], messages: [] });
+    } else {
+      set({
+        mode: 'chat',
+        agentSteps: [],
+        messages: [{
+          id: 'welcome',
+          role: 'assistant',
+          content: welcomeMessage,
+          timestamp: new Date().toISOString()
+        }]
+      });
+    }
+  },
+
+  setAgentSteps: (steps) => set({ agentSteps: steps }),
+
+  addAgentStep: (step) => set((state) => ({ agentSteps: [...state.agentSteps, step] })),
+
+  updateLastAgentStep: (update) => set((state) => {
+    const steps = [...state.agentSteps];
+    if (steps.length > 0) {
+      steps[steps.length - 1] = { ...steps[steps.length - 1], ...update };
+    }
+    return { agentSteps: steps };
+  }),
 }));

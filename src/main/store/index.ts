@@ -1,9 +1,10 @@
 import Store from 'electron-store'
-import type { StoreSchema } from '../../renderer/src/types'
+import type { StoreSchema, JobPreferences } from '../../renderer/src/types'
 import { encryptString, decryptString, isEncryptionAvailable } from '../services/secure-storage'
 
 const DEFAULT_API_BASE_URL = 'https://api.deepseek.com/v1/chat/completions'
-const DEFAULT_MODEL = 'deepseek-chat'
+const LEGACY_DEFAULT_MODELS = new Set(['deepseek-chat', 'deepseekv4flash'])
+const DEFAULT_MODEL = 'deepseek-v4-flash'
 const DEFAULT_REMINDER_MINUTES = 60
 
 function sanitizeVisibleText(value: unknown): string {
@@ -96,6 +97,15 @@ const store = new Store<StoreSchema>({
       resumeText: '',
       selfIntroText: ''
     },
+    preferences: {
+      cities: [],
+      salaryMin: '',
+      salaryMax: '',
+      industries: [],
+      jobTypes: [],
+      excludeCompanies: [],
+      notes: ''
+    },
     resources: []
   }
 })
@@ -149,7 +159,7 @@ export const configStore = {
       apiBaseUrl: typeof raw.apiBaseUrl === 'string' && raw.apiBaseUrl.trim()
         ? raw.apiBaseUrl.trim()
         : DEFAULT_API_BASE_URL,
-      model: typeof raw.model === 'string' && raw.model.trim()
+      model: typeof raw.model === 'string' && raw.model.trim() && !LEGACY_DEFAULT_MODELS.has(raw.model.trim())
         ? raw.model.trim()
         : DEFAULT_MODEL,
       defaultReminderMinutes: typeof raw.defaultReminderMinutes === 'number' && Number.isFinite(raw.defaultReminderMinutes)
@@ -221,6 +231,38 @@ export const profileStore = {
     const current = store.get('profile')
     const next = { ...current, ...profile }
     store.set('profile', next)
+    return next
+  }
+}
+
+const DEFAULT_PREFERENCES: JobPreferences = {
+  cities: [],
+  salaryMin: '',
+  salaryMax: '',
+  industries: [],
+  jobTypes: [],
+  excludeCompanies: [],
+  notes: ''
+}
+
+// Job preferences operations
+export const preferencesStore = {
+  get: (): JobPreferences => {
+    const raw = (store.get('preferences') ?? {}) as Partial<JobPreferences>
+    return {
+      cities: Array.isArray(raw.cities) ? raw.cities : [],
+      salaryMin: typeof raw.salaryMin === 'string' ? raw.salaryMin : '',
+      salaryMax: typeof raw.salaryMax === 'string' ? raw.salaryMax : '',
+      industries: Array.isArray(raw.industries) ? raw.industries : [],
+      jobTypes: Array.isArray(raw.jobTypes) ? raw.jobTypes : [],
+      excludeCompanies: Array.isArray(raw.excludeCompanies) ? raw.excludeCompanies : [],
+      notes: typeof raw.notes === 'string' ? raw.notes : ''
+    }
+  },
+  set: (prefs: Partial<JobPreferences>): JobPreferences => {
+    const current = preferencesStore.get()
+    const next = { ...current, ...prefs }
+    store.set('preferences', next)
     return next
   }
 }
